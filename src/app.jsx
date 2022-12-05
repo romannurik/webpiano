@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import * as Tone from "tone";
-
-// Import and apply CSS stylesheet
 import "./styles.css";
 
-// Home function that is reflected across the site
+const BLACK_KEY_WIDTH = 0.7;
+const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
 export default function App() {
   return <Piano from="C4" to="G5" />;
 }
@@ -25,8 +25,6 @@ function Piano({ from, to }) {
         pressed[note] = true;
       }
     }
-    //tone.current.triggerAttack(fullNote);
-    //
     return pressed;
   }, [canvas, pointers]);
 
@@ -61,7 +59,7 @@ function Piano({ from, to }) {
   }, [canvas, pressedNotes]);
 
   useEffect(() => {
-    tone.current = makeTone();
+    tone.current = makeToneSalamander();
     (async () => {
       await Tone.loaded();
       setToneLoaded(true);
@@ -98,7 +96,7 @@ function Piano({ from, to }) {
   return (
     <>
       <canvas
-        onClick={ev => {
+        onClick={(ev) => {
           document.body.requestFullscreen();
         }}
         ref={(node) => setCanvas(node)}
@@ -116,8 +114,6 @@ function Piano({ from, to }) {
     </>
   );
 }
-
-const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 function parseNote(s) {
   let [_, note, octave] = s.match(/(.+)(\d)/) || [];
@@ -148,8 +144,6 @@ function makeRange(from, to) {
   }
   return notes;
 }
-
-const BLACK_KEY_WIDTH = 0.7;
 
 function layoutKeys({ canvas, from, to }) {
   let width = canvas.offsetWidth;
@@ -216,7 +210,7 @@ function drawPiano({ pressedNotes, canvas, from, to }) {
   }
 }
 
-function makeTonePoly() {
+function makeTonePolySynth() {
   return new Tone.PolySynth(Tone.MonoSynth, {
     volume: -8,
     oscillator: {
@@ -239,7 +233,29 @@ function makeTonePoly() {
   }).toDestination();
 }
 
-function makeTone() {
+function makeToneCasio() {
+  return new Tone.Sampler({
+    urls: {
+      A1: "A1.mp3",
+      A2: "A2.mp3",
+      "A#1": "As1.mp3",
+      B1: "B1.mp3",
+      C2: "C2.mp3",
+      "C#2": "Cs2.mp3",
+      D2: "D2.mp3",
+      "D#2": "Ds2.mp3",
+      E2: "E2.mp3",
+      F2: "F2.mp3",
+      "F#2": "Fs2.mp3",
+      G2: "G2.mp3",
+      "G#1": "Gs1.mp3",
+    },
+    release: 1,
+    baseUrl: "https://tonejs.github.io/audio/casio/",
+  }).toDestination();
+}
+
+function makeToneSalamander() {
   return new Tone.Sampler({
     urls: {
       A0: "A0.mp3",
