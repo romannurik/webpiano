@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Tone from "tone";
 import styles from "./Piano.module.scss";
 import cn from 'classnames';
@@ -38,19 +38,23 @@ export function Piano({ className, start, keySize, instrument }) {
       }
     }
     return pressed;
-  }, [canvas, pointers, numWhiteKeys]);
+  }, [canvas, start, pointers, numWhiteKeys]);
 
-  useResizeObserver(container, () => {
+  let redrawPiano = useCallback(() => {
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
     drawPiano({ pressedNotes, canvas, start, numWhiteKeys });
+  }, [JSON.stringify(pressedNotes), canvas, start, numWhiteKeys]);
+
+  useResizeObserver(container, () => {
+    redrawPiano();
     setNumWhiteKeys(Math.max(5, Math.round(canvas.width / IDEAL_KEY_WIDTH_PX[keySize])));
-  }, [numWhiteKeys, keySize, pressedNotes, canvas, start]);
+  }, [redrawPiano, keySize, canvas]);
 
   useEffect(() => {
     if (!canvas) return;
-    drawPiano({ pressedNotes, canvas, start, numWhiteKeys });
-  }, [numWhiteKeys, pressedNotes, canvas, start]);
+    redrawPiano();
+  }, [canvas, redrawPiano]);
 
   useEffect(() => {
     for (let note in pressedNotes) {
