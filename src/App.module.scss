@@ -1,0 +1,13 @@
+.app {
+  width: 100%;
+  display: flex;
+  gap: 24px;
+}
+
+.settings {
+  flex: 1 1 0;
+}
+
+.piano {
+  flex: 4 4 0;
+}

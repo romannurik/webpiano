@@ -1,32 +1,56 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Tone from "tone";
-import "./styles.css";
+import styles from "./Piano.module.scss";
+import cn from 'classnames';
+import { useResizeObserver } from "./useResizeObserver";
 
 const BLACK_KEY_WIDTH = 0.7;
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-export default function App() {
-  return <Piano from="C4" to="G5" />;
-}
+export const INSTRUMENTS = {
+  'Salamader': makeToneSalamander,
+  'Casio': makeToneCasio,
+  'PolySynth': makeTonePolySynth,
+};
 
-function Piano({ from, to }) {
+const IDEAL_KEY_WIDTH_PX = {
+  normal: 56,
+  large: 70,
+  huge: 96
+};
+
+
+export function Piano({ className, start, keySize, instrument }) {
   let tone = useRef();
   let [canvas, setCanvas] = useState();
+  let [container, setContainer] = useState(null);
   let [pointers, setPointers] = useState({});
   let [toneLoaded, setToneLoaded] = useState(false);
-
   let lastPressedNotes = useRef({});
+  let [numWhiteKeys, setNumWhiteKeys] = useState(10);
 
   let pressedNotes = useMemo(() => {
     let pressed = {};
     for (let { x, y } of Object.values(pointers)) {
-      let note = hitTest(x, y, { canvas, from, to });
+      let note = hitTest(x, y, { canvas, start, numWhiteKeys });
       if (note) {
         pressed[note] = true;
       }
     }
     return pressed;
-  }, [canvas, pointers]);
+  }, [canvas, pointers, numWhiteKeys]);
+
+  useResizeObserver(container, () => {
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    drawPiano({ pressedNotes, canvas, start, numWhiteKeys });
+    setNumWhiteKeys(Math.max(5, Math.round(canvas.width / IDEAL_KEY_WIDTH_PX[keySize])));
+  }, [numWhiteKeys, keySize, pressedNotes, canvas, start]);
+
+  useEffect(() => {
+    if (!canvas) return;
+    drawPiano({ pressedNotes, canvas, start, numWhiteKeys });
+  }, [numWhiteKeys, pressedNotes, canvas, start]);
 
   useEffect(() => {
     for (let note in pressedNotes) {
@@ -45,27 +69,13 @@ function Piano({ from, to }) {
   }, [pressedNotes]);
 
   useEffect(() => {
-    if (!canvas) return;
-    if (!canvas) return;
-    let resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      drawPiano({ pressedNotes, canvas, from, to });
-    };
-    resize();
-    drawPiano({ pressedNotes, canvas, from, to });
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [canvas, pressedNotes]);
-
-  useEffect(() => {
-    tone.current = makeToneSalamander();
+    tone.current = INSTRUMENTS[instrument]();
     (async () => {
       await Tone.loaded();
       setToneLoaded(true);
     })();
     return () => (tone.current = null);
-  }, []);
+  }, [instrument]);
 
   useEffect(() => {
     let cancel = (ev) => {
@@ -90,17 +100,15 @@ function Piano({ from, to }) {
   });
 
   if (!toneLoaded) {
-    return "Loading...";
+    return <div className={className}>Loading...</div>;
   }
 
   return (
-    <>
+    <div className={cn(className, styles.container)}
+    ref={node => setContainer(node)}>
       <canvas
-        onClick={(ev) => {
-          document.body.requestFullscreen();
-        }}
         ref={(node) => setCanvas(node)}
-        className="piano"
+        className={styles.piano}
         onPointerDown={(ev) => {
           setPointers({
             ...pointers,
@@ -111,7 +119,7 @@ function Piano({ from, to }) {
           ev.preventDefault();
         }}
       />
-    </>
+    </div>
   );
 }
 
@@ -124,14 +132,23 @@ function noteStr({ note, octave }) {
   return `${note}${octave}`;
 }
 
-function makeRange(from, to) {
-  to = parseNote(to);
+function makeRange(start, numWhiteKeys) {
+  // let to = parseNote(to);
+  let to = {};
   let notes = [];
-  let cur = parseNote(from);
+  let cur = parseNote(start);
   let i = 0;
+  let wk = 0;
   while (++i < 1000) {
     notes.push(noteStr(cur));
     if (cur.note === to.note && cur.octave === to.octave) {
+      break;
+    }
+
+    if (noteStr(cur).indexOf('#') >= 0) {
+      ++wk;
+    }
+    if (wk >= numWhiteKeys) {
       break;
     }
 
@@ -145,10 +162,10 @@ function makeRange(from, to) {
   return notes;
 }
 
-function layoutKeys({ canvas, from, to }) {
+function layoutKeys({ canvas, start, numWhiteKeys }) {
   let width = canvas.offsetWidth;
   let height = canvas.offsetHeight;
-  let notes = makeRange(from, to);
+  let notes = makeRange(start, numWhiteKeys);
   let numWhiteNotes = notes.filter((n) => n.indexOf("#") < 0).length;
   let whiteKeyWidth = width / numWhiteNotes;
   let x = 0;
@@ -171,11 +188,11 @@ function layoutKeys({ canvas, from, to }) {
     .sort((a, b) => (a.black ? -1 : b.black ? 1 : 0));
 }
 
-function hitTest(testX, testY, { canvas, from, to }) {
-  let layout = layoutKeys({ canvas, from, to });
-  let start = canvas.getBoundingClientRect();
-  testX -= start.left;
-  testY -= start.top;
+function hitTest(testX, testY, { canvas, start, numWhiteKeys }) {
+  let layout = layoutKeys({ canvas, start, numWhiteKeys });
+  let tl = canvas.getBoundingClientRect();
+  testX -= tl.left;
+  testY -= tl.top;
   for (let { note, x, y, w, h } of layout) {
     if (testX >= x && testX < x + w && testY >= y && testY < y + h) {
       return note;
@@ -184,8 +201,8 @@ function hitTest(testX, testY, { canvas, from, to }) {
   return null;
 }
 
-function drawPiano({ pressedNotes, canvas, from, to }) {
-  let layout = layoutKeys({ canvas, from, to }).reverse();
+function drawPiano({ pressedNotes, canvas, start, numWhiteKeys }) {
+  let layout = layoutKeys({ canvas, start, numWhiteKeys }).reverse();
   let ctx = canvas.getContext("2d");
   let width = canvas.offsetWidth;
   let height = canvas.offsetHeight;
