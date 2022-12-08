@@ -1,77 +1,35 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import cn from "classnames";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Tone from "tone";
 import styles from "./Piano.module.scss";
-import cn from 'classnames';
 import { useResizeObserver } from "./useResizeObserver";
 
 const BLACK_KEY_WIDTH = 0.7;
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
+const RENDER_DENSITY = 2;
+
 export const INSTRUMENTS = {
-  'Salamader': makeToneSalamander,
-  'Casio': makeToneCasio,
-  'PolySynth': makeTonePolySynth,
+  Salamader: makeToneSalamander,
+  Casio: makeToneCasio,
+  PolySynth: makeTonePolySynth,
 };
 
 const IDEAL_KEY_WIDTH_PX = {
-  normal: 56,
-  large: 70,
-  huge: 96
+  normal: 64,
+  large: 80,
+  huge: 112,
 };
-
 
 export function Piano({ className, start, keySize, instrument }) {
   let tone = useRef();
+  let [toneLoaded, setToneLoaded] = useState(false);
   let [canvas, setCanvas] = useState();
   let [container, setContainer] = useState(null);
-  let [pointers, setPointers] = useState({});
-  let [toneLoaded, setToneLoaded] = useState(false);
-  let lastPressedNotes = useRef({});
+  let pointers = useRef({});
   let [numWhiteKeys, setNumWhiteKeys] = useState(10);
 
-  let pressedNotes = useMemo(() => {
-    let pressed = {};
-    for (let { x, y } of Object.values(pointers)) {
-      let note = hitTest(x, y, { canvas, start, numWhiteKeys });
-      if (note) {
-        pressed[note] = true;
-      }
-    }
-    return pressed;
-  }, [canvas, start, pointers, numWhiteKeys]);
-
-  let redrawPiano = useCallback(() => {
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    drawPiano({ pressedNotes, canvas, start, numWhiteKeys });
-  }, [JSON.stringify(pressedNotes), canvas, start, numWhiteKeys]);
-
-  useResizeObserver(container, () => {
-    redrawPiano();
-    setNumWhiteKeys(Math.max(5, Math.round(canvas.width / IDEAL_KEY_WIDTH_PX[keySize])));
-  }, [redrawPiano, keySize, canvas]);
-
-  useEffect(() => {
-    if (!canvas) return;
-    redrawPiano();
-  }, [canvas, redrawPiano]);
-
-  useEffect(() => {
-    for (let note in pressedNotes) {
-      if (!lastPressedNotes.current[note]) {
-        // new note!
-        tone.current.triggerAttack(note);
-      }
-    }
-    for (let note in lastPressedNotes.current) {
-      if (!pressedNotes[note]) {
-        // unpressed
-        tone.current.triggerRelease(note);
-      }
-    }
-    lastPressedNotes.current = pressedNotes;
-  }, [pressedNotes]);
-
+  // Set up autdio library
   useEffect(() => {
     tone.current = INSTRUMENTS[instrument]();
     (async () => {
@@ -81,17 +39,92 @@ export function Piano({ className, start, keySize, instrument }) {
     return () => (tone.current = null);
   }, [instrument]);
 
+  // Drawing and sizing
+  let redrawPiano = useCallback(() => {
+    if (
+      canvas.width !== canvas.offsetWidth * RENDER_DENSITY ||
+      canvas.height !== canvas.offsetHeight * RENDER_DENSITY
+    ) {
+      canvas.width = canvas.offsetWidth * RENDER_DENSITY;
+      canvas.height = canvas.offsetHeight * RENDER_DENSITY;
+    }
+    drawPiano({
+      pointers: pointers.current,
+      canvas,
+      start,
+      numWhiteKeys,
+    });
+  }, [canvas, start, numWhiteKeys]);
+
+  useResizeObserver(
+    container,
+    () => {
+      redrawPiano();
+      let numWhiteKeys = Math.round(canvas.width / IDEAL_KEY_WIDTH_PX[keySize]);
+      numWhiteKeys = Math.max(5, numWhiteKeys); // minimum
+      if (numWhiteKeys % 7 !== 0 && numWhiteKeys % 7 !== 4) {
+        // we always start on an F... let's make sure we end on a B or E
+        // to avoid any half black keys
+        if (numWhiteKeys % 7 < 4) {
+          // round down to end on an E
+          numWhiteKeys -= numWhiteKeys % 7;
+        } else {
+          // round down to end on a B
+          numWhiteKeys -= numWhiteKeys % 7 - 4;
+        }
+      }
+      setNumWhiteKeys(numWhiteKeys);
+    },
+    [redrawPiano, keySize, canvas]
+  );
+
+  useEffect(() => {
+    if (!canvas) return;
+    redrawPiano();
+  }, [canvas, redrawPiano]);
+
+  // Pressed key handling
+  let hitTestMemo = useCallback(
+    (x, y) => {
+      return hitTest(x, y, { canvas, start, numWhiteKeys });
+    },
+    [canvas, start, numWhiteKeys]
+  );
+
   useEffect(() => {
     let cancel = (ev) => {
-      let { [ev.pointerId]: _, ...otherPointers } = pointers;
-      setPointers(otherPointers);
+      // lifting finger
+      let note = pointers.current[ev.pointerId];
+      if (!note) return;
+      delete pointers.current[ev.pointerId];
+      if (Object.values(pointers.current).indexOf(note) < 0) {
+        // no other pointers pressing this note, trigger release
+        tone.current.triggerRelease(note);
+        redrawPiano();
+      }
     };
     let move = (ev) => {
-      if (!pointers[ev.pointerId]) return; // not pressed
-      setPointers({
-        ...pointers,
-        [ev.pointerId]: { x: ev.clientX, y: ev.clientY },
-      });
+      // moving your finger
+      let previousNote = pointers.current[ev.pointerId];
+      if (!previousNote) return; // not pressed
+      let newNote = hitTestMemo(ev.clientX, ev.clientY);
+      if (previousNote === newNote) return;
+      // previous note
+      delete pointers.current[ev.pointerId];
+      let notesPressed = Object.values(pointers.current);
+      if (notesPressed.indexOf(previousNote) < 0) {
+        // no other pointers pressing previous note, trigger release
+        tone.current.triggerRelease(previousNote);
+        redrawPiano();
+      }
+      // new note
+      if (!newNote) return;
+      let noteAlreadyPressed = notesPressed.indexOf(newNote) >= 0;
+      pointers.current[ev.pointerId] = newNote;
+      if (!noteAlreadyPressed) {
+        tone.current.triggerAttack(newNote);
+        redrawPiano();
+      }
     };
     window.addEventListener("pointerup", cancel);
     window.addEventListener("pointercancel", cancel);
@@ -101,23 +134,30 @@ export function Piano({ className, start, keySize, instrument }) {
       window.removeEventListener("pointercancel", cancel);
       window.removeEventListener("pointermove", move);
     };
-  });
+  }, [hitTestMemo]);
 
   if (!toneLoaded) {
     return <div className={className}>Loading...</div>;
   }
 
   return (
-    <div className={cn(className, styles.container)}
-    ref={node => setContainer(node)}>
+    <div
+      className={cn(className, styles.container)}
+      ref={(node) => setContainer(node)}
+    >
       <canvas
         ref={(node) => setCanvas(node)}
         className={styles.piano}
         onPointerDown={(ev) => {
-          setPointers({
-            ...pointers,
-            [ev.pointerId]: { x: ev.clientX, y: ev.clientY },
-          });
+          // pressing finger
+          let note = hitTestMemo(ev.clientX, ev.clientY);
+          if (!note) return;
+          let noteAlreadyPressed = Object.values(pointers.current).indexOf(note) >= 0;
+          pointers.current[ev.pointerId] = note;
+          if (!noteAlreadyPressed) {
+            tone.current.triggerAttack(note);
+            redrawPiano();
+          }
         }}
         onContextMenu={(ev) => {
           ev.preventDefault();
@@ -149,7 +189,7 @@ function makeRange(start, numWhiteKeys) {
       break;
     }
 
-    if (noteStr(cur).indexOf('#') >= 0) {
+    if (cur.note.indexOf("#") >= 0) {
       ++wk;
     }
     if (wk >= numWhiteKeys) {
@@ -170,8 +210,7 @@ function layoutKeys({ canvas, start, numWhiteKeys }) {
   let width = canvas.offsetWidth;
   let height = canvas.offsetHeight;
   let notes = makeRange(start, numWhiteKeys);
-  let numWhiteNotes = notes.filter((n) => n.indexOf("#") < 0).length;
-  let whiteKeyWidth = width / numWhiteNotes;
+  let whiteKeyWidth = width / numWhiteKeys;
   let x = 0;
   return notes
     .map((fullNote) => {
@@ -205,30 +244,36 @@ function hitTest(testX, testY, { canvas, start, numWhiteKeys }) {
   return null;
 }
 
-function drawPiano({ pressedNotes, canvas, start, numWhiteKeys }) {
+function drawPiano({ pointers, canvas, start, numWhiteKeys }) {
   let layout = layoutKeys({ canvas, start, numWhiteKeys }).reverse();
+  let pressedNotes = new Set(Object.values(pointers));
   let ctx = canvas.getContext("2d");
   let width = canvas.offsetWidth;
   let height = canvas.offsetHeight;
+  ctx.save();
+  ctx.scale(RENDER_DENSITY, RENDER_DENSITY);
   ctx.clearRect(0, 0, width, height);
+  ctx.strokeStyle = "1px solid red";
+
   for (let { x, y, w, h, black, note } of layout) {
     ctx.beginPath();
     if (black) {
-      ctx.roundRect(x, y, w, h, [0, 0, 5, 5]);
+      ctx.roundRect(Math.round(x), y, w, h, [0, 0, 5, 5]);
     } else {
-      ctx.rect(x, y, w, h);
+      ctx.rect(Math.round(x), y, w, h);
     }
     ctx.closePath();
-    if (pressedNotes[note]) {
+    if (pressedNotes.has(note)) {
       ctx.fillStyle = black ? "#888" : "#ddd";
       ctx.fill();
     } else if (black) {
       ctx.fillStyle = "#333";
       ctx.fill();
     }
-    ctx.strokeStyle = "1px solid black";
     ctx.stroke();
   }
+
+  ctx.restore();
 }
 
 function makeTonePolySynth() {

@@ -38,7 +38,7 @@ export function PianoSettings({ pianoConfig, onPianoConfig }) {
         </select>
       </label>
       <label className={styles.field}>
-        <span className={styles.fieldLabel}>Start note</span>
+        <span className={styles.fieldLabel}>Key size</span>
         <select
           value={keySize}
           onChange={(ev) => updateConfig({ keySize: ev.currentTarget.value })}

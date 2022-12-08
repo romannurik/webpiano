@@ -3,6 +3,7 @@ import { INSTRUMENTS, Piano } from "./Piano";
 import styles from "./App.module.scss";
 import { PianoSettings } from "./PianoSettings";
 import { useMediaQuery } from "./useMediaQuery";
+import { flushSync } from "react-dom";
 
 const DEFAULT_PIANO_CONFIG = {
   start: 'F2',
@@ -11,13 +12,14 @@ const DEFAULT_PIANO_CONFIG = {
 };
 
 export default function App() {
-  let [isPianoMode, setPianoMode] = useState(false);
+  let [isFullscreen, setFullscreen] = useState(false);
   let isSinglePane = useMediaQuery('(max-width: 899px)');
   let [pianoConfig, setPianoConfig] = useState(DEFAULT_PIANO_CONFIG);
 
   useEffect(() => {
     let onFullscreenChange = () => {
-      setPianoMode(!!document.fullscreenElement);
+      setFullscreen(!!document.fullscreenElement);
+      flushSync(); // whhhyyy is this necessaaarrryyyy??
     };
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => {
@@ -27,15 +29,15 @@ export default function App() {
 
   return (
     <div className={styles.app}>
-      {(!isSinglePane || !isPianoMode) && (
+      {(!isSinglePane || !isFullscreen) && (
         <div className={styles.settings}>
           <PianoSettings pianoConfig={pianoConfig} onPianoConfig={setPianoConfig} />
-          <button onClick={() => document.body.requestFullscreen()}>
-            Start
-          </button>
+          {(!isFullscreen || isSinglePane) && <button onClick={() => document.body.requestFullscreen()}>
+            {isSinglePane ? 'Start' : 'Fullscreen'}
+          </button>}
         </div>
       )}
-      {(!isSinglePane || isPianoMode) && <Piano className={styles.piano} {...pianoConfig} />}
+      {(!isSinglePane || isFullscreen) && <Piano className={styles.piano} {...pianoConfig} />}
     </div>
   );
 }
