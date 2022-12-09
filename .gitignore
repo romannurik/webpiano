@@ -4,3 +4,4 @@ web_modules
 .firebaserc
 .glitchdotcom.json
 build
+dist

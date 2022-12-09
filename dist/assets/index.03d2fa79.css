@@ -1,1 +1,0 @@
-html{user-select:none}html,body{margin:0}#root{background-color:#fff;display:flex;padding:50px;height:100vh;box-sizing:border-box}@media only screen and (max-height: 600px){#root{padding:20px}}.piano{background-color:#fff;display:flex;align-items:stretch;width:100%;flex:1 1 0;height:100%;touch-action:none}
