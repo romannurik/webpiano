@@ -21,13 +21,23 @@ const IDEAL_KEY_SIZE_PX = {
   huge: 64,
 };
 
-export function Piano({ className, vertical, start, keySize, instrument }) {
+const PIANO_COLORS = {
+  'key-white': '#fff',
+  'key-white-pressed': '#ccc',
+  'key-black': '#000',
+  'key-black-pressed': '#333',
+  'key-border': '#000',
+};
+
+
+export function Piano({ className, vertical, dark, start, keySize, instrument }) {
   let tone = useRef();
   let [toneLoaded, setToneLoaded] = useState(false);
   let [canvas, setCanvas] = useState();
   let [container, setContainer] = useState(null);
   let pointers = useRef({});
   let [numWhiteKeys, setNumWhiteKeys] = useState(10);
+  let [colors, setColors] = useState({});
 
   // Set up autdio library
   useEffect(() => {
@@ -38,6 +48,15 @@ export function Piano({ className, vertical, start, keySize, instrument }) {
     })();
     return () => (tone.current = null);
   }, [instrument]);
+
+  // Get colors
+  useEffect(() => {
+    setTimeout(() => {
+      let cs = window.getComputedStyle(document.body);
+      setColors(Object.fromEntries(Object.keys(PIANO_COLORS).map(id =>
+        [id, cs.getPropertyValue(`--color-${id}`)])));
+    });
+  }, [dark]);
 
   // Drawing and sizing
   let redrawPiano = useCallback(() => {
@@ -54,8 +73,9 @@ export function Piano({ className, vertical, start, keySize, instrument }) {
       vertical,
       start,
       numWhiteKeys,
+      colors,
     });
-  }, [canvas, vertical, start, numWhiteKeys]);
+  }, [canvas, colors, vertical, start, numWhiteKeys]);
 
   useResizeObserver(
     container,
@@ -191,7 +211,7 @@ function makeRange(start, numWhiteKeys) {
       break;
     }
 
-    if (cur.note.indexOf("#") >= 0) {
+    if (cur.note.indexOf("#") < 0) {
       ++wk;
     }
     if (wk >= numWhiteKeys) {
@@ -209,8 +229,8 @@ function makeRange(start, numWhiteKeys) {
 }
 
 function layoutKeys({ canvas, vertical, start, numWhiteKeys }) {
-  let width = canvas.offsetWidth;
-  let height = canvas.offsetHeight;
+  let width = canvas.width;
+  let height = canvas.height;
   let canvasLongSize = !vertical ? width : height;
   let canvasShortSize = !vertical ? height : width;
   let longPosProp = !vertical ? 'x' : 'y';
@@ -218,23 +238,38 @@ function layoutKeys({ canvas, vertical, start, numWhiteKeys }) {
   let longSizeProp = !vertical ? 'w' : 'h';
   let shortSizeProp = !vertical ? 'h' : 'w';
   let notes = makeRange(start, numWhiteKeys);
-  let whiteKeySize = canvasLongSize / numWhiteKeys;
-  let longPos = 0;
+  let whiteKeySize = (canvasLongSize + 1) / numWhiteKeys;
   let realLP = (longPos, keySize) => vertical ? canvasLongSize - longPos - keySize : longPos;
+  let wkIndex = 0;
   return notes
     .map((fullNote) => {
       let { note, octave } = parseNote(fullNote);
       let black = note.endsWith("#");
-      let keySize = black ? whiteKeySize * BLACK_KEY_SIZE : whiteKeySize;
-      let n = {
-        note: `${note}${octave}`,
-        [longPosProp]: realLP(black ? longPos - keySize / 2 : longPos, keySize),
-        [shortPosProp]: 0,
-        [longSizeProp]: keySize,
-        [shortSizeProp]: black ? canvasShortSize / 2 : canvasShortSize,
-        black,
-      };
-      longPos += black ? 0 : whiteKeySize;
+      let n;
+      let longPos = Math.round(wkIndex * whiteKeySize);
+      let nextLongPos = Math.round((wkIndex + 1) * whiteKeySize);
+      if (black) {
+        let keySize = Math.round(whiteKeySize * BLACK_KEY_SIZE);
+        n = {
+          note: `${note}${octave}`,
+          [longPosProp]: Math.round(realLP(longPos - keySize / 2, keySize)),
+          [shortPosProp]: 0,
+          [longSizeProp]: keySize,
+          [shortSizeProp]: Math.round(canvasShortSize / 2),
+          black,
+        };
+      } else {
+        let keySize = Math.abs(nextLongPos - longPos);
+        n = {
+          note: `${note}${octave}`,
+          [longPosProp]: realLP(longPos - 0.5, keySize),
+          [shortPosProp]: -1,
+          [longSizeProp]: keySize,
+          [shortSizeProp]: canvasShortSize + 1,
+          black,
+        };
+        ++wkIndex;
+      }
       return n;
     })
     .sort((a, b) => (a.black ? -1 : b.black ? 1 : 0));
@@ -245,6 +280,8 @@ function hitTest(testX, testY, { canvas, vertical, start, numWhiteKeys }) {
   let tl = canvas.getBoundingClientRect();
   testX -= tl.left;
   testY -= tl.top;
+  testX *= RENDER_DENSITY;
+  testY *= RENDER_DENSITY;
   for (let { note, x, y, w, h } of layout) {
     if (testX >= x && testX < x + w && testY >= y && testY < y + h) {
       return note;
@@ -253,34 +290,35 @@ function hitTest(testX, testY, { canvas, vertical, start, numWhiteKeys }) {
   return null;
 }
 
-function drawPiano({ pointers, canvas, vertical, start, numWhiteKeys }) {
+function drawPiano({ pointers, canvas, vertical, start, numWhiteKeys, colors }) {
   let layout = layoutKeys({ canvas, vertical, start, numWhiteKeys }).reverse();
   let pressedNotes = new Set(Object.values(pointers));
   let ctx = canvas.getContext("2d");
-  let width = canvas.offsetWidth;
-  let height = canvas.offsetHeight;
+  let width = canvas.width;
+  let height = canvas.height;
   ctx.save();
-  ctx.scale(RENDER_DENSITY, RENDER_DENSITY);
   ctx.clearRect(0, 0, width, height);
-  ctx.strokeStyle = "1px solid red";
+  ctx.strokeStyle = colors['key-border'];
+  ctx.lineWidth = Math.round(Math.max(RENDER_DENSITY, 1));
+  let corner = 5 * RENDER_DENSITY;
 
   for (let { x, y, w, h, black, note } of layout) {
     ctx.beginPath();
     if (black) {
       if (vertical) {
-        ctx.roundRect(x, Math.round(y), w, h, [0, 5, 5, 0]);
+        ctx.roundRect(x, y - 0.5, w + 0.5, h + 1, [0, corner, corner, 0]);
       } else {
-        ctx.roundRect(Math.round(x), y, w, h, [0, 0, 5, 5]);
+        ctx.roundRect(x - 0.5, y, w + 1, h + 0.5, [0, 0, corner, corner]);
       }
     } else {
-      ctx.rect(Math.round(x), y, w, h);
+      ctx.rect(x, y, w, h);
     }
     ctx.closePath();
     if (pressedNotes.has(note)) {
-      ctx.fillStyle = black ? "#888" : "#ddd";
+      ctx.fillStyle = black ? colors['key-black-pressed'] : colors['key-white-pressed'];
       ctx.fill();
-    } else if (black) {
-      ctx.fillStyle = "#333";
+    } else {
+      ctx.fillStyle = black ? colors['key-black'] : colors['key-white'];
       ctx.fill();
     }
     ctx.stroke();

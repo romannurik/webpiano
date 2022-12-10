@@ -25,7 +25,7 @@
       transform: translate(-50%, -50%) rotate(-90deg) translate(-50%, 50%);
       left: var(--app-padding);
       top: var(--app-padding);
-      width: calc(100vh - var(--app-padding) * 2);
+      width: calc(100 * var(--vh, 1vh) - var(--app-padding) * 2);
     }
   }
 }

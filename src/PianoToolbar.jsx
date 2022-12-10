@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useState } from "react";
 import { INSTRUMENTS } from "./Piano";
 import styles from "./PianoToolbar.module.scss";
 import cn from 'classnames';
-import { ArrowsPointingIn, ArrowsPointingOut, ChevronLeft, ChevronRight, MagnifyingGlassMinus, MagnifyingGlassPlus, MusicalNote } from "./icons";
+import { ArrowsPointingIn, ArrowsPointingOut, ChevronLeft, ChevronRight, MagnifyingGlassMinus, MagnifyingGlassPlus, Moon, MusicalNote, Sun } from "./icons";
 import { flushSync } from "react-dom";
 
 const START_KEYS = ['F2', 'F3', 'F4'];
 
 export function PianoToolbar({ className, pianoConfig, onPianoConfig }) {
-  let { instrument, keySize, start } = pianoConfig;
+  let { instrument, keySize, start, dark } = pianoConfig;
   let [isFullscreen, setFullscreen] = useState(false);
 
   let updateConfig = (c) => {
@@ -48,6 +48,8 @@ export function PianoToolbar({ className, pianoConfig, onPianoConfig }) {
         disabled={start === START_KEYS[START_KEYS.length - 1]}
         onClick={() => updateConfig({ start: nextOption(START_KEYS, start) })} />
       <Spacer />
+      <IconButton icon={dark ? <Sun/> : <Moon />}
+        onClick={() => updateConfig({ dark: !dark })} />
       {!isFullscreen && <IconButton icon={<ArrowsPointingOut />}
         onClick={() => document.body.requestFullscreen()} />}
       {isFullscreen && <IconButton icon={<ArrowsPointingIn />}

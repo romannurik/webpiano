@@ -2,10 +2,23 @@
   position: relative;
 }
 
-.container, .loading {
-  border-radius: 8px;
+.container,
+.loading {
+  border-radius: 12px;
   overflow: hidden;
-  border: 2px solid #333;
+  position: relative;
+
+  &::after {
+    content: '';
+    pointer-events: none;
+    border-radius: inherit;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    box-shadow: 0 0 0 2px var(--color-border) inset;
+  }
 }
 
 .loading {
@@ -22,4 +35,5 @@
   width: 100%;
   height: 100%;
   touch-action: none;
+  image-rendering: pixelated;
 }
