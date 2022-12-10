@@ -220,6 +220,7 @@ function layoutKeys({ canvas, vertical, start, numWhiteKeys }) {
   let notes = makeRange(start, numWhiteKeys);
   let whiteKeySize = canvasLongSize / numWhiteKeys;
   let longPos = 0;
+  let realLP = (longPos, keySize) => vertical ? canvasLongSize - longPos - keySize : longPos;
   return notes
     .map((fullNote) => {
       let { note, octave } = parseNote(fullNote);
@@ -227,7 +228,7 @@ function layoutKeys({ canvas, vertical, start, numWhiteKeys }) {
       let keySize = black ? whiteKeySize * BLACK_KEY_SIZE : whiteKeySize;
       let n = {
         note: `${note}${octave}`,
-        [longPosProp]: black ? longPos - keySize / 2 : longPos,
+        [longPosProp]: realLP(black ? longPos - keySize / 2 : longPos, keySize),
         [shortPosProp]: 0,
         [longSizeProp]: keySize,
         [shortSizeProp]: black ? canvasShortSize / 2 : canvasShortSize,
