@@ -1,43 +1,42 @@
 import React, { useState, useEffect } from "react";
 import { INSTRUMENTS, Piano } from "./Piano";
 import styles from "./App.module.scss";
-import { PianoSettings } from "./PianoSettings";
+import { PianoToolbar } from "./PianoToolbar";
 import { useMediaQuery } from "./useMediaQuery";
 import { flushSync } from "react-dom";
+import cn from 'classnames';
 
-const DEFAULT_PIANO_CONFIG = {
-  start: 'F2',
-  keySize: 'normal',
-  instrument: Object.keys(INSTRUMENTS)[0],
-};
+const PIANO_CONFIG_LOCAL_STORAGE_KEY = 'pianoSettings';
+
+const DEFAULT_PIANO_CONFIG = window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY]
+  ? JSON.parse(window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY])
+  : {
+    start: 'F3',
+    keySize: 'large',
+    instrument: Object.keys(INSTRUMENTS)[0],
+  };
 
 export default function App() {
-  let [isFullscreen, setFullscreen] = useState(false);
-  let isSinglePane = useMediaQuery('(max-width: 899px)');
   let [pianoConfig, setPianoConfig] = useState(DEFAULT_PIANO_CONFIG);
+  let [isVertical, setVertical] = useState(false);
 
   useEffect(() => {
-    let onFullscreenChange = () => {
-      setFullscreen(!!document.fullscreenElement);
-      flushSync(); // whhhyyy is this necessaaarrryyyy??
+    let onResize = () => {
+      setVertical(window.innerWidth < window.innerHeight);
     };
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", onFullscreenChange);
-    };
+    window.addEventListener('resize', onResize);
+    onResize();
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  useEffect(() => {
+    window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY] = JSON.stringify(pianoConfig);
+  }, [pianoConfig]);
+
   return (
-    <div className={styles.app}>
-      {(!isSinglePane || !isFullscreen) && (
-        <div className={styles.settings}>
-          <PianoSettings pianoConfig={pianoConfig} onPianoConfig={setPianoConfig} />
-          {(!isFullscreen || isSinglePane) && <button onClick={() => document.body.requestFullscreen()}>
-            {isSinglePane ? 'Start' : 'Fullscreen'}
-          </button>}
-        </div>
-      )}
-      {(!isSinglePane || isFullscreen) && <Piano className={styles.piano} {...pianoConfig} />}
+    <div className={cn(styles.app, { [styles.isVertical]: isVertical })}>
+      <PianoToolbar className={styles.toolbar} pianoConfig={pianoConfig} onPianoConfig={setPianoConfig} />
+      <Piano vertical={isVertical} className={styles.piano} {...pianoConfig} />
     </div>
   );
 }

@@ -1,13 +1,39 @@
 .app {
+  position: relative;
   width: 100%;
   display: flex;
-  gap: 24px;
+  flex-direction: column;
+  --app-padding: 20px;
+  --toolbar-size: 60px;
+  padding: var(--app-padding);
+  box-sizing: border-box;
+
+  &:not(.isVertical) {
+    padding-top: calc(var(--app-padding) + var(--toolbar-size));
+
+    .toolbar {
+      left: var(--app-padding);
+      top: var(--app-padding);
+      right: var(--app-padding);
+    }
+  }
+
+  &.isVertical {
+    padding-left: calc(var(--app-padding) + var(--toolbar-size));
+
+    .toolbar {
+      transform: translate(-50%, -50%) rotate(-90deg) translate(-50%, 50%);
+      left: var(--app-padding);
+      top: var(--app-padding);
+      width: calc(100vh - var(--app-padding) * 2);
+    }
+  }
 }
 
-.settings {
-  flex: 1 1 0;
+.toolbar {
+  position: absolute;
 }
 
 .piano {
-  flex: 4 4 0;
+  flex: 1 1 0;
 }

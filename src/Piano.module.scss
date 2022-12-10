@@ -2,6 +2,17 @@
   position: relative;
 }
 
+.container, .loading {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #333;
+}
+
+.loading {
+  padding: 40px;
+  box-sizing: border-box;
+}
+
 .piano {
   position: absolute;
   left: 0;

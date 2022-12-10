@@ -11,13 +11,6 @@ body {
 #root {
   background-color: white;
   display: flex;
-  padding: 50px;
   height: 100vh;
   box-sizing: border-box;
-}
-
-@media only screen and (max-height: 600px) {
-  #root {
-    padding: 20px;
-  }  
 }
