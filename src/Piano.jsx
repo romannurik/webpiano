@@ -156,7 +156,7 @@ export function Piano({ className, vertical, dark, start, keySize, instrument })
       window.removeEventListener("pointercancel", cancel);
       window.removeEventListener("pointermove", move);
     };
-  }, [hitTestMemo]);
+  }, [redrawPiano, hitTestMemo]);
 
   if (!toneLoaded) {
     return <div className={cn(className, styles.loading)}>Loading...</div>;
@@ -299,7 +299,7 @@ function drawPiano({ pointers, canvas, vertical, start, numWhiteKeys, colors }) 
   ctx.save();
   ctx.clearRect(0, 0, width, height);
   ctx.strokeStyle = colors['key-border'];
-  ctx.lineWidth = Math.round(Math.max(RENDER_DENSITY, 1));
+  ctx.lineWidth = Math.round(Math.max(2 * RENDER_DENSITY, 1));
   let corner = 5 * RENDER_DENSITY;
 
   for (let { x, y, w, h, black, note } of layout) {
