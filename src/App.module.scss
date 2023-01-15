@@ -7,6 +7,7 @@
   --toolbar-size: 60px;
   padding: var(--app-padding);
   box-sizing: border-box;
+  -webkit-user-select: none;
   user-select: none;
 
   &:not(.isVertical) {
