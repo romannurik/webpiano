@@ -5,7 +5,7 @@ import cn from 'classnames';
 import { ArrowsPointingIn, ArrowsPointingOut, ChevronLeft, ChevronRight, MagnifyingGlassMinus, MagnifyingGlassPlus, Moon, MusicalNote, Sun } from "./icons";
 import { flushSync } from "react-dom";
 
-const START_KEYS = ['F2', 'F3', 'F4'];
+const START_KEYS = ['F1', 'F2', 'F3', 'F4'];
 
 export function PianoToolbar({ className, pianoConfig, onPianoConfig }) {
   let { instrument, keySize, start, dark } = pianoConfig;
