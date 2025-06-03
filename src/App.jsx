@@ -13,17 +13,24 @@ const PIANO_CONFIG_LOCAL_STORAGE_KEY = 'pianoSettings';
   window.addEventListener('resize', update, false);
 })();
 
-const DEFAULT_PIANO_CONFIG = window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY]
-  ? JSON.parse(window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY])
-  : {
+let initialPianoConfig = undefined;
+try {
+  initialPianoConfig = JSON.parse(window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY]);
+  const {offset, keySize, instrument, dark} = initialPianoConfig;
+  if (typeof offset !== 'number' || !keySize || !instrument) {
+    throw 'invalid config';
+  }
+} catch (e) {
+  initialPianoConfig = {
     offset: 3 * 7, // beginning of octave 4 (C4)
     keySize: 'large',
     instrument: Object.keys(INSTRUMENTS)[0],
     dark: false,
   };
+}
 
 export default function App() {
-  let [pianoConfig, setPianoConfig] = useState(DEFAULT_PIANO_CONFIG);
+  let [pianoConfig, setPianoConfig] = useState(initialPianoConfig);
   let [isVertical, setVertical] = useState(false);
   let [numWhiteKeys, setNumWhiteKeys] = useState(1);
 
