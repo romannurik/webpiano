@@ -19,9 +19,9 @@ export const INSTRUMENTS = {
 };
 
 const IDEAL_KEY_SIZE_PX = {
-  normal: 36,
-  large: 44,
-  huge: 64,
+  normal: 44,
+  large: 64,
+  huge: 80,
 };
 
 const PIANO_COLORS = {
