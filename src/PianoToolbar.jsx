@@ -1,14 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { INSTRUMENTS } from "./Piano";
 import styles from "./PianoToolbar.module.scss";
 import cn from 'classnames';
 import { ArrowsPointingIn, ArrowsPointingOut, ChevronLeft, ChevronRight, MagnifyingGlassMinus, MagnifyingGlassPlus, Moon, MusicalNote, Sun } from "./icons";
 import { flushSync } from "react-dom";
 
-const START_KEYS = ['F1', 'F2', 'F3', 'F4'];
-
-export function PianoToolbar({ className, pianoConfig, onPianoConfig }) {
-  let { instrument, keySize, start, dark } = pianoConfig;
+export function PianoToolbar({ className, pianoConfig, onPianoConfig, vertical, numWhiteKeys }) {
+  let { instrument, keySize, offset, dark } = pianoConfig;
   let [isFullscreen, setFullscreen] = useState(false);
 
   let updateConfig = (c) => {
@@ -38,17 +36,42 @@ export function PianoToolbar({ className, pianoConfig, onPianoConfig }) {
         value={keySize}
         onChange={keySize => updateConfig({ keySize })}
         icon={keySize === 'huge' ? <MagnifyingGlassMinus /> : <MagnifyingGlassPlus />} />
-      <IconButton
-        icon={<ChevronLeft />}
-        disabled={start === START_KEYS[0]}
-        onClick={() => updateConfig({ start: prevOption(START_KEYS, start) })} />
-      <div>{start}</div>
-      <IconButton
-        icon={<ChevronRight />}
-        disabled={start === START_KEYS[START_KEYS.length - 1]}
-        onClick={() => updateConfig({ start: nextOption(START_KEYS, start) })} />
-      <Spacer />
-      <IconButton icon={dark ? <Sun/> : <Moon />}
+      <div
+        className={styles.scrollbar}
+        onPointerDown={ev => {
+          let rect = ev.currentTarget.getBoundingClientRect();
+          let lpStart = vertical ? rect.bottom : rect.left;
+          let lpEnd = vertical ? rect.top : rect.right;
+          let hit = (lp) => {
+            let pct = (lp - lpStart) / (lpEnd - lpStart);
+            let offset = pct * 7 * 9 - numWhiteKeys / 2;
+            offset = Math.max(0, Math.min(7 * 9 - numWhiteKeys, offset));
+            onPianoConfig({ ...pianoConfig, offset });
+          };
+
+          let cancel = () => {
+            window.removeEventListener("pointerup", cancel);
+            window.removeEventListener("pointercancel", cancel);
+            window.removeEventListener("pointermove", move);
+          };
+
+          let move = (ev) => hit(vertical ? ev.clientY : ev.clientX);
+          hit(vertical ? ev.clientY : ev.clientX);
+
+          window.addEventListener("pointerup", cancel);
+          window.addEventListener("pointercancel", cancel);
+          window.addEventListener("pointermove", move);
+        }}>
+          {Array(9).fill(null).map((_, i) => (
+            <div key={i} className={styles.octaveLabel}>{i + 1}</div>
+          ))}
+        <div className={styles.thumb}
+        style={{
+          left: `${offset / (7 * 9) * 100}%`,
+          width: `${numWhiteKeys / (7 * 9) * 100}%`,
+        }} />
+      </div>
+      <IconButton icon={dark ? <Sun /> : <Moon />}
         onClick={() => updateConfig({ dark: !dark })} />
       {!isFullscreen && <IconButton icon={<ArrowsPointingOut />}
         onClick={() => document.body.requestFullscreen()} />}
@@ -57,8 +80,6 @@ export function PianoToolbar({ className, pianoConfig, onPianoConfig }) {
     </div>
   );
 }
-
-const Spacer = () => <div style={{ flex: 1 }} />;
 
 function prevOption(options, current) {
   let curIndex = options.indexOf(current);

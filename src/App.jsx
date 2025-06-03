@@ -16,7 +16,7 @@ const PIANO_CONFIG_LOCAL_STORAGE_KEY = 'pianoSettings';
 const DEFAULT_PIANO_CONFIG = window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY]
   ? JSON.parse(window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY])
   : {
-    start: 'F3',
+    offset: 3 * 7, // beginning of octave 4 (C4)
     keySize: 'large',
     instrument: Object.keys(INSTRUMENTS)[0],
     dark: false,
@@ -25,6 +25,7 @@ const DEFAULT_PIANO_CONFIG = window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY]
 export default function App() {
   let [pianoConfig, setPianoConfig] = useState(DEFAULT_PIANO_CONFIG);
   let [isVertical, setVertical] = useState(false);
+  let [numWhiteKeys, setNumWhiteKeys] = useState(1);
 
   useEffect(() => {
     document.documentElement.setAttribute('theme', pianoConfig.dark ? 'dark' : 'light');
@@ -45,8 +46,17 @@ export default function App() {
 
   return (
     <div className={cn(styles.app, { [styles.isVertical]: isVertical })}>
-      <PianoToolbar className={styles.toolbar} pianoConfig={pianoConfig} onPianoConfig={setPianoConfig} />
-      <Piano vertical={isVertical} className={styles.piano} {...pianoConfig} />
+      <PianoToolbar
+        className={styles.toolbar}
+        vertical={isVertical}
+        pianoConfig={pianoConfig}
+        numWhiteKeys={numWhiteKeys}
+        onPianoConfig={setPianoConfig} />
+      <Piano
+        vertical={isVertical}
+        className={styles.piano}
+        {...pianoConfig}
+        onResize={wk => setNumWhiteKeys(wk)} />
     </div>
   );
 }

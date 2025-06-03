@@ -8,6 +8,7 @@ import { useResizeObserver } from "./useResizeObserver";
 
 const BLACK_KEY_SIZE = 0.7;
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const WHITE_NOTES = NOTES.filter(n => n.length === 1);
 
 const RENDER_DENSITY = 2;
 
@@ -32,7 +33,8 @@ const PIANO_COLORS = {
 };
 
 
-export function Piano({ className, vertical, dark, start, keySize, instrument }) {
+export function Piano({ className, vertical, dark, offset, keySize, instrument, onResize }) {
+  offset = Math.max(0, Math.min(108, offset));
   let tone = useRef();
   let [toneLoaded, setToneLoaded] = useState(false);
   let [canvas, setCanvas] = useState();
@@ -73,11 +75,11 @@ export function Piano({ className, vertical, dark, start, keySize, instrument })
       pointers: pointers.current,
       canvas,
       vertical,
-      start,
+      offset,
       numWhiteKeys,
       colors,
     });
-  }, [canvas, colors, vertical, start, numWhiteKeys]);
+  }, [canvas, colors, vertical, offset, numWhiteKeys]);
 
   useResizeObserver(
     container,
@@ -86,21 +88,25 @@ export function Piano({ className, vertical, dark, start, keySize, instrument })
       let canvasLongSize = Math.max(canvas.offsetWidth, canvas.offsetHeight);
       let numWhiteKeys = Math.round(canvasLongSize / IDEAL_KEY_SIZE_PX[keySize]);
       numWhiteKeys = Math.max(5, numWhiteKeys); // minimum
-      if (numWhiteKeys % 7 !== 0 && numWhiteKeys % 7 !== 4) {
-        // we always start on an F... let's make sure we end on a B or E
-        // to avoid any half black keys
-        if (numWhiteKeys % 7 < 4) {
-          // round down to end on an E
-          numWhiteKeys -= numWhiteKeys % 7;
-        } else {
-          // round down to end on a B
-          numWhiteKeys -= numWhiteKeys % 7 - 4;
-        }
-      }
+      // if (numWhiteKeys % 7 !== 0 && numWhiteKeys % 7 !== 4) {
+      //   // we always start on an F... let's make sure we end on a B or E
+      //   // to avoid any half black keys
+      //   if (numWhiteKeys % 7 < 4) {
+      //     // round down to end on an E
+      //     numWhiteKeys -= numWhiteKeys % 7;
+      //   } else {
+      //     // round down to end on a B
+      //     numWhiteKeys -= numWhiteKeys % 7 - 4;
+      //   }
+      // }
       setNumWhiteKeys(numWhiteKeys);
     },
     [redrawPiano, keySize, canvas]
   );
+
+  useEffect(() => {
+    onResize?.(numWhiteKeys);
+  }, [numWhiteKeys, onResize]);
 
   useEffect(() => {
     if (!canvas) return;
@@ -110,9 +116,9 @@ export function Piano({ className, vertical, dark, start, keySize, instrument })
   // Pressed key handling
   let hitTestMemo = useCallback(
     (x, y) => {
-      return hitTest(x, y, { canvas, vertical, start, numWhiteKeys });
+      return hitTest(x, y, { canvas, vertical, offset, numWhiteKeys });
     },
-    [canvas, vertical, start, numWhiteKeys]
+    [canvas, vertical, offset, numWhiteKeys]
   );
 
   useEffect(() => {
@@ -200,11 +206,17 @@ function noteStr({ note, octave }) {
   return `${note}${octave}`;
 }
 
-function makeRange(start, numWhiteKeys) {
+function offsetToNote(offset) {
+  const octave = Math.floor(offset / 7);
+  const note = WHITE_NOTES[Math.floor((offset / 7 - octave) * WHITE_NOTES.length)];
+  return { note, octave };
+}
+
+function makeRange(offset, numWhiteKeys) {
   // let to = parseNote(to);
   let to = {};
   let notes = [];
-  let cur = parseNote(start);
+  let cur = offsetToNote(offset);
   let i = 0;
   let wk = 0;
   while (++i < 1000) {
@@ -230,7 +242,7 @@ function makeRange(start, numWhiteKeys) {
   return notes;
 }
 
-function layoutKeys({ canvas, vertical, start, numWhiteKeys }) {
+function layoutKeys({ canvas, vertical, offset, numWhiteKeys }) {
   let width = canvas.width;
   let height = canvas.height;
   let canvasLongSize = !vertical ? width : height;
@@ -239,17 +251,26 @@ function layoutKeys({ canvas, vertical, start, numWhiteKeys }) {
   let shortPosProp = !vertical ? 'y' : 'x';
   let longSizeProp = !vertical ? 'w' : 'h';
   let shortSizeProp = !vertical ? 'h' : 'w';
-  let notes = makeRange(start, numWhiteKeys);
+  // we also layout extra white keys to the left, so we can render
+  // the black keys near them... except at the very beginning of the
+  // piano (the Math.min part)
+  let layoutExtraWhiteKeysLeft = Math.min(2, Math.round(offset));
+  let layoutExtraWhiteKeysRight = 2;
+  let notes = makeRange(
+    offset - layoutExtraWhiteKeysLeft,
+    numWhiteKeys + layoutExtraWhiteKeysLeft + layoutExtraWhiteKeysRight);
   let whiteKeySize = (canvasLongSize + 1) / numWhiteKeys;
-  let realLP = (longPos, keySize) => vertical ? canvasLongSize - longPos - keySize : longPos;
+  const startLP = ((offset % 1) + layoutExtraWhiteKeysLeft) * whiteKeySize;
+  let realLP = (longPos, keySize) => vertical
+    ? (canvasLongSize - longPos - keySize + startLP)
+    : (longPos - startLP);
   let wkIndex = 0;
   return notes
     .map((fullNote) => {
       let { note, octave } = parseNote(fullNote);
       let black = note.endsWith("#");
       let n;
-      let longPos = Math.round(wkIndex * whiteKeySize);
-      let nextLongPos = Math.round((wkIndex + 1) * whiteKeySize);
+      let longPos = wkIndex * whiteKeySize;
       if (black) {
         let keySize = Math.round(whiteKeySize * BLACK_KEY_SIZE);
         n = {
@@ -261,7 +282,7 @@ function layoutKeys({ canvas, vertical, start, numWhiteKeys }) {
           black,
         };
       } else {
-        let keySize = Math.abs(nextLongPos - longPos);
+        let keySize = whiteKeySize;
         n = {
           note: `${note}${octave}`,
           [longPosProp]: realLP(longPos - 0.5, keySize),
@@ -277,8 +298,8 @@ function layoutKeys({ canvas, vertical, start, numWhiteKeys }) {
     .sort((a, b) => (a.black ? -1 : b.black ? 1 : 0));
 }
 
-function hitTest(testX, testY, { canvas, vertical, start, numWhiteKeys }) {
-  let layout = layoutKeys({ canvas, vertical, start, numWhiteKeys });
+function hitTest(testX, testY, { canvas, vertical, offset, numWhiteKeys }) {
+  let layout = layoutKeys({ canvas, vertical, offset, numWhiteKeys });
   let tl = canvas.getBoundingClientRect();
   testX -= tl.left;
   testY -= tl.top;
@@ -292,8 +313,8 @@ function hitTest(testX, testY, { canvas, vertical, start, numWhiteKeys }) {
   return null;
 }
 
-function drawPiano({ pointers, canvas, vertical, start, numWhiteKeys, colors }) {
-  let layout = layoutKeys({ canvas, vertical, start, numWhiteKeys }).reverse();
+function drawPiano({ pointers, canvas, vertical, offset, numWhiteKeys, colors }) {
+  let layout = layoutKeys({ canvas, vertical, offset, numWhiteKeys }).reverse();
   let pressedNotes = new Set(Object.values(pointers));
   let ctx = canvas.getContext("2d");
   let width = canvas.width;

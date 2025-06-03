@@ -30,3 +30,41 @@
     height: 24px;
   }
 }
+
+.scrollbar {
+  position: relative;
+  height: 32px;
+  flex: 1 1 0;
+  margin: 0 16px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px var(--color-border);
+  overflow: hidden;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  background: var(--color-bg);
+  transform: translateZ(0);
+
+  .octaveLabel {
+    text-align: center;
+    flex: 1 1 0;
+
+    & + .octaveLabel {
+      border-left: 1px solid var(--color-border);
+    }
+  }
+
+  .thumb {
+    position: absolute;
+    left: 0;
+    width: 0;
+    height: 100%;
+    box-sizing: border-box;
+    top: 0;
+    border-radius: 999px;
+    border: 2px solid black;
+    background-color: white;
+    pointer-events: none;
+    mix-blend-mode: difference;
+  }
+}
