@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import styles from "./App.module.scss";
 import { INSTRUMENTS, Piano } from "./Piano";
 import { PianoToolbar } from "./PianoToolbar";
+import { deltaNote, makeChord, makeScale, optimalChordInversion, parseNote } from './piano-util';
 
 const PIANO_CONFIG_LOCAL_STORAGE_KEY = 'pianoSettings';
 
@@ -16,7 +17,7 @@ const PIANO_CONFIG_LOCAL_STORAGE_KEY = 'pianoSettings';
 let initialPianoConfig = undefined;
 try {
   initialPianoConfig = JSON.parse(window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY]);
-  const {offset, keySize, instrument, dark} = initialPianoConfig;
+  const { offset, keySize, instrument, dark } = initialPianoConfig;
   if (typeof offset !== 'number' || !keySize || !instrument) {
     throw 'invalid config';
   }
@@ -33,6 +34,32 @@ export default function App() {
   let [pianoConfig, setPianoConfig] = useState(initialPianoConfig);
   let [isVertical, setVertical] = useState(false);
   let [numWhiteKeys, setNumWhiteKeys] = useState(1);
+  let [playNotes, setPlayNotes] = useState([]);
+
+  // play notes on a sequence
+  // useEffect(() => {
+  //   let scale = makeScale('E3', false);
+  //   let queue = [{
+  //     notes: [scale[0], scale[2], scale[4]],
+  //     hold: 1000
+  //   }];
+  //   console.clear();
+  //   console.log(queue);
+  //   let cancel = false;
+  //   (async () => {
+  //     await new Promise(resolve => setTimeout(resolve, 1000));
+  //     while (!cancel && queue.length) {
+  //       let { notes, hold } = queue.shift();
+  //       setPlayNotes(notes);
+  //       await new Promise(resolve => setTimeout(resolve, hold));
+  //     }
+  //     setPlayNotes([]);
+  //   })();
+  //   return () => {
+  //     cancel = true;
+  //     setPlayNotes([]);
+  //   }
+  // }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('theme', pianoConfig.dark ? 'dark' : 'light');
@@ -63,6 +90,25 @@ export default function App() {
         vertical={isVertical}
         className={styles.piano}
         {...pianoConfig}
+        playNotes={playNotes}
+        onModifyNotes={notes => {
+          if (!pianoConfig.chordMode) {
+            return notes;
+          }
+
+          let modified = [];
+          for (let note of notes) {
+            let {note: n} = parseNote(note);
+            let minor = ['A', 'E'].includes(n);
+            modified.push(note);
+            let higherNote = deltaNote(note, 12);
+            let scale = makeScale(higherNote, minor);
+            let chord = makeChord(scale, 1, 3, 5);
+            chord = optimalChordInversion(chord, 'F4');
+            modified.push(...chord);
+          }
+          return modified;
+        }}
         onResize={wk => setNumWhiteKeys(wk)} />
     </div>
   );

@@ -25,9 +25,17 @@
     opacity: .3;
   }
 
-  svg {
-    width: 24px;
-    height: 24px;
+  &.isChecked {
+    position: relative;
+
+    &:after {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border-radius: 4px;
+      background: white;
+      mix-blend-mode: difference;
+    }
   }
 }
 

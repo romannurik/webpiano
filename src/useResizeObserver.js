@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 
 export function useResizeObserver(node, callback, deps) {
   let memoCallback = useCallback(callback, deps);

@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { INSTRUMENTS } from "./Piano";
 import styles from "./PianoToolbar.module.scss";
 import cn from 'classnames';
-import { ArrowsPointingIn, ArrowsPointingOut, ChevronLeft, ChevronRight, MagnifyingGlassMinus, MagnifyingGlassPlus, Moon, MusicalNote, Sun } from "./icons";
 import { flushSync } from "react-dom";
+import { ExpandIcon, KeyboardMusicIcon, Maximize, Mic2Icon, MicIcon, MinimizeIcon, MoonIcon, Music4Icon, MusicIcon, PianoIcon, SunIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 
 export function PianoToolbar({ className, pianoConfig, onPianoConfig, vertical, numWhiteKeys }) {
   let { instrument, keySize, offset, dark } = pianoConfig;
@@ -30,12 +30,15 @@ export function PianoToolbar({ className, pianoConfig, onPianoConfig, vertical, 
         options={Object.keys(INSTRUMENTS)}
         value={instrument}
         onChange={instrument => updateConfig({ instrument })}
-        icon={<MusicalNote />} />
+        icon={Object.keys(INSTRUMENTS)[0] === instrument ? <PianoIcon /> : <KeyboardMusicIcon />} />
+      <IconButton icon={<Mic2Icon />}
+        checked={!!pianoConfig.chordMode}
+        onClick={() => updateConfig({ chordMode: !pianoConfig.chordMode })} />
       <RotateOptionsIconButton
         options={['normal', 'large', 'huge']}
         value={keySize}
         onChange={keySize => updateConfig({ keySize })}
-        icon={keySize === 'huge' ? <MagnifyingGlassMinus /> : <MagnifyingGlassPlus />} />
+        icon={keySize === 'huge' ? <ZoomOutIcon /> : <ZoomInIcon />} />
       <div
         className={styles.scrollbar}
         onPointerDown={ev => {
@@ -62,20 +65,20 @@ export function PianoToolbar({ className, pianoConfig, onPianoConfig, vertical, 
           window.addEventListener("pointercancel", cancel);
           window.addEventListener("pointermove", move);
         }}>
-          {Array(9).fill(null).map((_, i) => (
-            <div key={i} className={styles.octaveLabel}>{i + 1}</div>
-          ))}
+        {Array(9).fill(null).map((_, i) => (
+          <div key={i} className={styles.octaveLabel}>{i + 1}</div>
+        ))}
         <div className={styles.thumb}
-        style={{
-          left: `${offset / (7 * 9) * 100}%`,
-          width: `${numWhiteKeys / (7 * 9) * 100}%`,
-        }} />
+          style={{
+            left: `${offset / (7 * 9) * 100}%`,
+            width: `${numWhiteKeys / (7 * 9) * 100}%`,
+          }} />
       </div>
-      <IconButton icon={dark ? <Sun /> : <Moon />}
+      <IconButton icon={dark ? <SunIcon /> : <MoonIcon />}
         onClick={() => updateConfig({ dark: !dark })} />
-      {!isFullscreen && <IconButton icon={<ArrowsPointingOut />}
+      {!isFullscreen && <IconButton icon={<ExpandIcon />}
         onClick={() => document.body.requestFullscreen()} />}
-      {isFullscreen && <IconButton icon={<ArrowsPointingIn />}
+      {isFullscreen && <IconButton icon={<MinimizeIcon />}
         onClick={() => document.exitFullscreen()} />}
     </div>
   );
@@ -101,8 +104,8 @@ function RotateOptionsIconButton({ icon, className, options, value, onChange, ..
     icon={icon} />;
 }
 
-function IconButton({ className, disabled, icon, onClick, ...props }) {
-  return <button disabled={disabled} className={cn(className, styles.iconButton)} onClick={onClick} {...props}>
+function IconButton({ className, disabled, checked, icon, onClick, ...props }) {
+  return <button disabled={disabled} className={cn(className, styles.iconButton, { [styles.isChecked]: checked })} onClick={onClick} {...props}>
     {icon}
   </button>;
 }
