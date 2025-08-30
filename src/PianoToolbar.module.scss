@@ -27,6 +27,8 @@
 
   &.isChecked {
     position: relative;
+    isolation: isolate;
+    background: var(--color-bg); // needed for vertical
 
     &:after {
       content: '';
