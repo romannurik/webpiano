@@ -6,6 +6,7 @@ import styles from "./Piano.module.scss";
 import makeToneCasio from "./samples/casio";
 import makeToneSalamander from "./samples/salamander";
 import { useResizeObserver } from "./useResizeObserver";
+import {SampleLibrary} from './tonejs-instruments';
 
 const BLACK_KEY_SIZE = 0.7;
 
@@ -15,6 +16,7 @@ export const INSTRUMENTS = {
   Salamader: makeToneSalamander,
   Casio: makeToneCasio,
   PolySynth: makeTonePolySynth,
+  // Harmonium: () => makeInstrument('bass-electric'),
 };
 
 const IDEAL_KEY_SIZE_PX = {
@@ -61,6 +63,7 @@ export function Piano({
     tone.current = INSTRUMENTS[instrument]();
     (async () => {
       await Tone.loaded();
+      tone.current.toDestination?.();
       setToneLoaded(true);
     })();
     return () => (tone.current = null);
@@ -365,4 +368,14 @@ function makeTonePolySynth() {
       octaves: 4,
     },
   }).toDestination();
+}
+
+function makeInstrument(name) {
+  let instruments = SampleLibrary.load({
+    instruments: [name],
+    baseUrl: '/samples-tonejs-instruments/',
+  });
+  let instrument = instruments[name];
+  instrument.toDestination();
+  return instrument;
 }
