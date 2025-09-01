@@ -76,7 +76,14 @@ export function PianoToolbar({ className, pianoConfig, onPianoConfig, vertical, 
           window.addEventListener("pointermove", move);
         }}>
         {Array(9).fill(null).map((_, i) => (
-          <div key={i} className={styles.octaveLabel}>{i + 1}</div>
+          <div key={i} className={styles.octaveLabel}>
+            {i + 1}
+            <div className={styles.octaveLabelBlackKey} />
+            <div className={styles.octaveLabelBlackKey} />
+            <div className={styles.octaveLabelBlackKey} />
+            <div className={styles.octaveLabelBlackKey} />
+            <div className={styles.octaveLabelBlackKey} />
+          </div>
         ))}
         <div className={styles.thumb}
           style={{
