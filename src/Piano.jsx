@@ -1,12 +1,11 @@
 import cn from "classnames";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Tone from "tone";
+import { makeNoteRangeForLayout, parseNote } from "./piano-util";
 import styles from "./Piano.module.scss";
 import makeToneCasio from "./samples/casio";
 import makeToneSalamander from "./samples/salamander";
-import { usePrevious } from "./usePrevious";
 import { useResizeObserver } from "./useResizeObserver";
-import { makeNoteRangeForLayout, parseNote } from "./piano-util";
 
 const BLACK_KEY_SIZE = 0.7;
 
@@ -56,12 +55,6 @@ export function Piano({
 
   // track active notes + pointers
   let pointers = useRef({});
-  let [pressedNotes, setPressedNotes] = useState([]); // redundant with Object.values(pointers)
-  let activeNotes = useMemo(() => {
-    let raw = Array.from(new Set([...pressedNotes, ...(playNotes || [])]))
-    return onModifyNotes ? onModifyNotes(raw) : raw;
-  }, [onModifyNotes, pressedNotes, playNotes]);
-  let prevActiveNotes = usePrevious(activeNotes) || [];
 
   // Set up audio library
   useEffect(() => {
@@ -72,23 +65,6 @@ export function Piano({
     })();
     return () => (tone.current = null);
   }, [instrument]);
-
-  // Attack/release notes
-  useEffect(() => {
-    if (!tone.current) {
-      return;
-    }
-    for (let note of activeNotes) {
-      if (!prevActiveNotes.includes(note)) {
-        tone.current.triggerAttack(note);
-      }
-    }
-    for (let note of prevActiveNotes) {
-      if (!activeNotes.includes(note)) {
-        tone.current.triggerRelease(note);
-      }
-    }
-  }, [activeNotes, prevActiveNotes]);
 
   // Get colors
   useEffect(() => {
@@ -101,6 +77,9 @@ export function Piano({
 
   // Drawing and sizing
   let redrawPiano = useCallback(() => {
+    if (!canvas) {
+      return;
+    }
     if (
       canvas.width !== canvas.offsetWidth * RENDER_DENSITY ||
       canvas.height !== canvas.offsetHeight * RENDER_DENSITY
@@ -110,14 +89,14 @@ export function Piano({
     }
     drawPiano({
       pointers: pointers.current,
-      downNotes: activeNotes,
+      downNotes: activeNotes.current,
       canvas,
       vertical,
       offset,
       numWhiteKeys,
       colors,
     });
-  }, [canvas, activeNotes, colors, vertical, offset, numWhiteKeys]);
+  }, [canvas, colors, vertical, offset, numWhiteKeys]);
 
   useResizeObserver(
     container,
@@ -126,17 +105,6 @@ export function Piano({
       let canvasLongSize = Math.max(canvas.offsetWidth, canvas.offsetHeight);
       let numWhiteKeys = Math.round(canvasLongSize / IDEAL_KEY_SIZE_PX[keySize]);
       numWhiteKeys = Math.max(5, numWhiteKeys); // minimum
-      // if (numWhiteKeys % 7 !== 0 && numWhiteKeys % 7 !== 4) {
-      //   // we always start on an F... let's make sure we end on a B or E
-      //   // to avoid any half black keys
-      //   if (numWhiteKeys % 7 < 4) {
-      //     // round down to end on an E
-      //     numWhiteKeys -= numWhiteKeys % 7;
-      //   } else {
-      //     // round down to end on a B
-      //     numWhiteKeys -= numWhiteKeys % 7 - 4;
-      //   }
-      // }
       setNumWhiteKeys(numWhiteKeys);
     },
     [redrawPiano, keySize, canvas]
@@ -153,11 +121,48 @@ export function Piano({
 
   // Pressed key handling
   let hitTestMemo = useCallback(
-    (x, y) => {
-      return hitTest(x, y, { canvas, vertical, offset, numWhiteKeys });
-    },
+    (x, y) => hitTest(x, y, { canvas, vertical, offset, numWhiteKeys }),
     [canvas, vertical, offset, numWhiteKeys]
   );
+
+  let activeNotes = useRef([]);
+  let prevActiveNotes = useRef([]);
+  let handleNoteChange = useCallback((note, pressed) => {
+    // TODO: do we actually need the note and whether it was pressed
+    // if we're just using pointers?
+    // figure out which notes to play, including:
+    // - pressed notes
+    // - modifier on pressed notes, if provided
+    // - separate list of notes to play, if provided
+    let pressedNotes = Object.values(pointers.current);
+    let raw = Array.from(new Set([...pressedNotes, ...(playNotes || [])]))
+    activeNotes.current = onModifyNotes ? onModifyNotes(raw) : raw;
+
+    // trigger attack/release on any newly added/newly removed notes
+    try {
+      if (tone.current && toneLoaded) {
+        for (let note of activeNotes.current) {
+          if (!prevActiveNotes.current.includes(note)) {
+            tone.current.triggerAttack(note);
+          }
+        }
+        for (let note of prevActiveNotes.current) {
+          if (!activeNotes.current.includes(note)) {
+            tone.current.triggerRelease(note);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+
+    redrawPiano();
+    prevActiveNotes.current = activeNotes.current;
+  }, [onModifyNotes, playNotes, redrawPiano, toneLoaded]);
+
+  useEffect(() => {
+    handleNoteChange(undefined, undefined);
+  }, [playNotes]);
 
   useEffect(() => {
     let cancel = (ev) => {
@@ -167,8 +172,7 @@ export function Piano({
       delete pointers.current[ev.pointerId];
       if (Object.values(pointers.current).indexOf(note) < 0) {
         // no other pointers pressing this note, trigger release
-        setPressedNotes(prev => prev.filter(n => n !== note));
-        redrawPiano();
+        handleNoteChange(note, false);
       }
     };
     let move = (ev) => {
@@ -179,19 +183,17 @@ export function Piano({
       if (previousNote === newNote) return;
       // previous note
       delete pointers.current[ev.pointerId];
-      let notesPressed = Object.values(pointers.current);
-      if (notesPressed.indexOf(previousNote) < 0) {
+      let pressedNotes = Object.values(pointers.current);
+      if (pressedNotes.indexOf(previousNote) < 0) {
         // no other pointers pressing previous note, trigger release
-        setPressedNotes(prev => prev.filter(n => n !== previousNote));
-        redrawPiano();
+        handleNoteChange(previousNote, false);
       }
       // new note
       if (!newNote) return;
-      let noteAlreadyPressed = notesPressed.indexOf(newNote) >= 0;
+      let noteAlreadyPressed = pressedNotes.indexOf(newNote) >= 0;
       pointers.current[ev.pointerId] = newNote;
       if (!noteAlreadyPressed) {
-        setPressedNotes(prev => [...prev, newNote]);
-        redrawPiano();
+        handleNoteChange(newNote, true);
       }
     };
     window.addEventListener("pointerup", cancel);
@@ -202,7 +204,7 @@ export function Piano({
       window.removeEventListener("pointercancel", cancel);
       window.removeEventListener("pointermove", move);
     };
-  }, [redrawPiano, hitTestMemo]);
+  }, [redrawPiano, hitTestMemo, handleNoteChange]);
 
   if (!toneLoaded) {
     return <div className={cn(className, styles.loading)}>Loading...</div>;
@@ -223,8 +225,7 @@ export function Piano({
           let noteAlreadyPressed = Object.values(pointers.current).indexOf(note) >= 0;
           pointers.current[ev.pointerId] = note;
           if (!noteAlreadyPressed) {
-            setPressedNotes(prev => [...prev, note]);
-            redrawPiano();
+            handleNoteChange(note, true);
           }
         }}
         onContextMenu={(ev) => {

@@ -1,9 +1,9 @@
+import cn from 'classnames';
+import { ExpandIcon, KeyboardMusicIcon, MinimizeIcon, MoonIcon, PianoIcon, SunIcon, WandSparklesIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { INSTRUMENTS } from "./Piano";
 import styles from "./PianoToolbar.module.scss";
-import cn from 'classnames';
-import { flushSync } from "react-dom";
-import { ExpandIcon, KeyboardMusicIcon, Maximize, Mic2Icon, MicIcon, MinimizeIcon, MoonIcon, Music4Icon, MusicIcon, PianoIcon, SunIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 
 export function PianoToolbar({ className, pianoConfig, onPianoConfig, vertical, numWhiteKeys }) {
   let { instrument, keySize, offset, dark } = pianoConfig;
@@ -31,7 +31,7 @@ export function PianoToolbar({ className, pianoConfig, onPianoConfig, vertical, 
         value={instrument}
         onChange={instrument => updateConfig({ instrument })}
         icon={Object.keys(INSTRUMENTS)[0] === instrument ? <PianoIcon /> : <KeyboardMusicIcon />} />
-      <IconButton icon={<Mic2Icon />}
+      <IconButton icon={<WandSparklesIcon />}
         checked={!!pianoConfig.chordMode}
         onClick={() => updateConfig({ chordMode: !pianoConfig.chordMode })} />
       <RotateOptionsIconButton
@@ -45,11 +45,21 @@ export function PianoToolbar({ className, pianoConfig, onPianoConfig, vertical, 
           let rect = ev.currentTarget.getBoundingClientRect();
           let lpStart = vertical ? rect.bottom : rect.left;
           let lpEnd = vertical ? rect.top : rect.right;
-          let hit = (lp) => {
+          let origOffset = pianoConfig.offset;
+          let downOffset = 0;
+
+          let hit = (lp, first) => {
             let pct = (lp - lpStart) / (lpEnd - lpStart);
-            let offset = pct * 7 * 9 - numWhiteKeys / 2;
+            let offset = pct * 7 * 9;// - numWhiteKeys / 2;
+            if (first) {
+              downOffset = offset;
+              offset = origOffset;
+            } else {
+              offset = offset - downOffset + origOffset;
+            }
             offset = Math.max(0, Math.min(7 * 9 - numWhiteKeys, offset));
             onPianoConfig({ ...pianoConfig, offset });
+            return offset;
           };
 
           let cancel = () => {
@@ -59,7 +69,7 @@ export function PianoToolbar({ className, pianoConfig, onPianoConfig, vertical, 
           };
 
           let move = (ev) => hit(vertical ? ev.clientY : ev.clientX);
-          hit(vertical ? ev.clientY : ev.clientX);
+          hit(vertical ? ev.clientY : ev.clientX, true);
 
           window.addEventListener("pointerup", cancel);
           window.addEventListener("pointercancel", cancel);

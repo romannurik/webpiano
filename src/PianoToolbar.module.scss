@@ -33,8 +33,8 @@
     &:after {
       content: '';
       position: absolute;
-      inset: 6px;
-      border-radius: 4px;
+      inset: 4px;
+      border-radius: 40px;
       background: white;
       mix-blend-mode: difference;
     }
