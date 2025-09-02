@@ -3,44 +3,6 @@
   align-items: center;
 }
 
-@mixin button-reset {
-  appearance: none;
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-  background-color: transparent;
-  color: inherit;
-}
-
-.iconButton {
-  @include button-reset;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-
-  &[disabled] {
-    cursor: not-allowed;
-    opacity: .3;
-  }
-
-  &.isChecked {
-    position: relative;
-    isolation: isolate;
-    background: var(--color-bg); // needed for vertical
-
-    &:after {
-      content: '';
-      position: absolute;
-      inset: 4px;
-      border-radius: 6px;
-      background: white;
-      mix-blend-mode: difference;
-    }
-  }
-}
-
 .scrollbar {
   position: relative;
   height: 32px;

@@ -1,0 +1,14 @@
+@mixin button-reset {
+  @layer reset {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    cursor: pointer;
+    background-color: transparent;
+    color: unset;
+    font-size: unset;
+    line-height: unset;
+    font-family: unset;
+    text-align: unset;
+  }
+}

@@ -1,0 +1,68 @@
+@use './util.scss' as util;
+
+.root {
+  z-index: 1;
+  border: 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  transform: translateZ(0);
+
+  &.isVertical {
+    left: 50%;
+    top: 50%;
+    width: 100vh;
+    height: 100vw;
+    transform: translate(-50%, -50%) rotate(-90deg);
+  }
+}
+
+.toolbar {
+  padding: var(--app-padding) var(--app-padding) 8px var(--app-padding);
+}
+
+.grid {
+  overflow-x: scroll;
+  padding: 0 var(--app-padding) var(--app-padding) var(--app-padding);
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(auto-fit, minmax(20px, 40px));
+  grid-auto-columns: 180px;
+  flex: 1;
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.category,
+.instrument {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.category {
+  font-weight: bold;
+}
+
+.instrument {
+  @include util.button-reset;
+  position: relative;
+  border-radius: 6px;
+
+  &.isSelected {
+    color: var(--color-bg);
+    background-color: var(--color-fg);
+  }
+}
+
+.iconSpace {
+  width: 24px;
+  height: 24px;
+}

@@ -1,0 +1,30 @@
+@use '../util.scss' as util;
+
+.iconButton {
+  @include util.button-reset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+
+  &[disabled] {
+    cursor: not-allowed;
+    opacity: 0.3;
+  }
+
+  &.isChecked {
+    position: relative;
+    isolation: isolate;
+    background: var(--color-bg); // needed for vertical
+
+    &:after {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border-radius: 6px;
+      background: white;
+      mix-blend-mode: difference;
+    }
+  }
+}

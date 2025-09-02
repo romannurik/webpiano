@@ -3,21 +3,12 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as Tone from "tone";
 import { makeNoteRangeForLayout, parseNote } from "./piano-util";
 import styles from "./Piano.module.scss";
-import makeToneCasio from "./samples/casio";
-import makeToneSalamander from "./samples/salamander";
 import { useResizeObserver } from "./useResizeObserver";
-import {SampleLibrary} from './tonejs-instruments';
+import { INSTRUMENTS } from "./instruments";
 
 const BLACK_KEY_SIZE = 0.7;
 
 const RENDER_DENSITY = 2;
-
-export const INSTRUMENTS = {
-  Salamader: makeToneSalamander,
-  Casio: makeToneCasio,
-  PolySynth: makeTonePolySynth,
-  // Harmonium: () => makeInstrument('bass-electric'),
-};
 
 const IDEAL_KEY_SIZE_PX = {
   normal: 44,
@@ -60,7 +51,7 @@ export function Piano({
 
   // Set up audio library
   useEffect(() => {
-    tone.current = INSTRUMENTS[instrument]();
+    tone.current = INSTRUMENTS[instrument].load();
     (async () => {
       await Tone.loaded();
       tone.current.toDestination?.();
@@ -345,37 +336,4 @@ function drawPiano({ pointers, downNotes, canvas, vertical, offset, numWhiteKeys
   }
 
   ctx.restore();
-}
-
-function makeTonePolySynth() {
-  return new Tone.PolySynth(Tone.MonoSynth, {
-    volume: -8,
-    oscillator: {
-      type: "square8",
-    },
-    envelope: {
-      attack: 0.05,
-      decay: 0.3,
-      sustain: 0.4,
-      release: 0.8,
-    },
-    filterEnvelope: {
-      attack: 0.001,
-      decay: 0.7,
-      sustain: 0.1,
-      release: 0.8,
-      baseFrequency: 300,
-      octaves: 4,
-    },
-  }).toDestination();
-}
-
-function makeInstrument(name) {
-  let instruments = SampleLibrary.load({
-    instruments: [name],
-    baseUrl: '/samples-tonejs-instruments/',
-  });
-  let instrument = instruments[name];
-  instrument.toDestination();
-  return instrument;
 }
