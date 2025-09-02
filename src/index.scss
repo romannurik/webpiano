@@ -17,6 +17,8 @@ body {
   --color-key-white-pressed: #ccc;
   --color-key-black: #222;
   --color-key-black-pressed: #555;
+  --color-toolbar-thumb-diff: #fff;
+  --color-toolbar-black-key: #{rgba(#000, 0.3)};
 
   // @media (prefers-color-scheme: dark) {
   &[theme="dark"] {
@@ -28,6 +30,8 @@ body {
     --color-key-white-pressed: #181818;
     --color-key-black: #000;
     --color-key-black-pressed: #141414;
+    --color-toolbar-thumb-diff: #{rgba(#fff, 0.2)};
+    --color-toolbar-black-key: #{rgba(#ccc, 0.2)};
   }
 }
 

@@ -47,7 +47,7 @@
       height: 50%;
       border-bottom-left-radius: 2px;
       border-bottom-right-radius: 2px;
-      background-color: color-mix(in srgb, var(--color-border) 30%, transparent);
+      background-color: var(--color-toolbar-black-key);
       transform: translateX(-50%);
 
       &:nth-child(1) {
@@ -78,7 +78,7 @@
     top: 0;
     border-radius: 0;
     // border: 2px solid black;
-    background-color: white;
+    background-color: var(--color-toolbar-thumb-diff);
     pointer-events: none;
     mix-blend-mode: difference;
   }

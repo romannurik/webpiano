@@ -1,6 +1,8 @@
 @use './util.scss' as util;
 
 .root {
+  background: var(--color-bg);
+  color: var(--color-fg);
   z-index: 1;
   border: 0;
   position: fixed;
@@ -17,8 +19,8 @@
   &.isVertical {
     left: 50%;
     top: 50%;
-    width: 100vh;
-    height: 100vw;
+    width: 100svh;
+    height: 100svw;
     transform: translate(-50%, -50%) rotate(-90deg);
   }
 }
