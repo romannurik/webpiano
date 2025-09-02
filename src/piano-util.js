@@ -18,7 +18,7 @@ export function noteDistance(a, b) {
 
 export function offsetToNote(offset) {
   const octave = Math.floor(offset / 7);
-  const note = WHITE_NOTES[Math.floor((offset / 7 - octave) * 7)];
+  const note = WHITE_NOTES[Math.floor(offset) - octave * 7];
   return { note, octave };
 }
 

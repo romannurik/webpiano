@@ -45,7 +45,6 @@ export default function App() {
   let [isVertical, setVertical] = useState(false);
   let [numWhiteKeys, setNumWhiteKeys] = useState(1);
   let [playNotes, setPlayNotes] = useState([]);
-  let [instrument, setInstrument] = useState(undefined);
 
   // play notes on a sequence
   // useEffect(() => {
