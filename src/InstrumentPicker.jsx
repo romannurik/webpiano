@@ -1,15 +1,15 @@
-import { ArrowLeftIcon, CheckIcon } from "lucide-react";
+import cn from "classnames";
+import { CheckIcon, XIcon } from "lucide-react";
+import { Fragment } from "react";
 import { IconButton } from "./components/IconButton";
 import styles from "./InstrumentPicker.module.scss";
-import cn from "classnames";
 import { CATEGORIES, CATEGORY_ICONS, INSTRUMENTS } from "./instruments";
-import { Fragment } from "react";
 
 export function InstrumentPicker({ onClose, selected, onSelect, vertical }) {
   return (
     <dialog className={cn(styles.root, { [styles.isVertical]: vertical })} open>
       <div className={styles.toolbar}>
-        <IconButton icon={<ArrowLeftIcon />} onClick={onClose} />
+        <IconButton icon={<XIcon />} onClick={onClose} />
       </div>
       <div className={styles.grid}>
         {CATEGORIES.map((c) => (

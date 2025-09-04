@@ -36,6 +36,16 @@
   position: absolute;
 }
 
+.pianoContainer {
+  flex: 1 1 0;
+  display: flex;
+  gap: var(--app-padding);
+
+  .app:not(.isVertical) & {
+    flex-direction: column;
+  }
+}
+
 .piano {
   flex: 1 1 0;
 }

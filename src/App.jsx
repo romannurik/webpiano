@@ -1,11 +1,19 @@
 import cn from "classnames";
-import React, { useEffect, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import * as Tone from "tone";
 import styles from "./App.module.scss";
 import { Piano } from "./Piano";
 import { PianoToolbar } from "./PianoToolbar";
 import { INSTRUMENTS } from "./instruments";
 import {
   deltaNote,
+  diffNotes,
   makeChord,
   makeScale,
   optimalChordInversion,
@@ -43,8 +51,73 @@ try {
 export default function App() {
   let [pianoConfig, setPianoConfig] = useState(initialPianoConfig);
   let [isVertical, setVertical] = useState(false);
+  let [dualPiano, setDualPiano] = useState(false);
   let [numWhiteKeys, setNumWhiteKeys] = useState(1);
-  let [playNotes, setPlayNotes] = useState([]);
+
+  let tone = useRef();
+  let [toneLoaded, setToneLoaded] = useState(false);
+  let [highlightNotes, setHighlightNotes] = useState([]);
+
+  // Set up audio library
+  useEffect(() => {
+    tone.current = INSTRUMENTS[pianoConfig.instrument].load();
+    (async () => {
+      await Tone.loaded();
+      tone.current.toDestination?.();
+      setToneLoaded(true);
+    })();
+    return () => (tone.current = null);
+  }, [pianoConfig.instrument]);
+
+  let transformActiveNotes = useCallback(
+    (notes) => {
+      if (!pianoConfig.chordMode) {
+        return notes;
+      }
+
+      let modified = [];
+      for (let note of notes) {
+        let { note: n } = parseNote(note);
+        let minor = ["A", "E"].includes(n);
+        modified.push(note);
+        let higherNote = deltaNote(note, 12);
+        let scale = makeScale(higherNote, minor);
+        let chord = makeChord(scale, 1, 3, 5);
+        chord = optimalChordInversion(chord, "F4");
+        modified.push(...chord);
+      }
+      return modified;
+    },
+    [pianoConfig.chordMode]
+  );
+
+  let downNotes = useRef([]);
+  let activeNotes = useRef([]);
+  let prevActiveNotes = useRef([]);
+
+  let { onNoteDown, onNoteUp } = useMemo(() => {
+    let handleNotesChanged = () => {
+      activeNotes.current = transformActiveNotes(downNotes.current);
+      setHighlightNotes(activeNotes.current);
+      let { added, removed } = diffNotes(
+        prevActiveNotes.current,
+        activeNotes.current
+      );
+      added.forEach((n) => tone.current?.triggerAttack(n));
+      removed.forEach((n) => tone.current?.triggerRelease(n));
+      prevActiveNotes.current = activeNotes.current;
+    };
+
+    let onNoteDown = (...notes) => {
+      downNotes.current = [...downNotes.current, ...notes];
+      handleNotesChanged();
+    };
+    let onNoteUp = (...notes) => {
+      downNotes.current = downNotes.current.filter((n) => !notes.includes(n));
+      handleNotesChanged();
+    };
+    return { onNoteDown, onNoteUp };
+  }, [transformActiveNotes]);
 
   // play notes on a sequence
   // useEffect(() => {
@@ -80,7 +153,11 @@ export default function App() {
 
   useEffect(() => {
     let onResize = () => {
-      setVertical(window.innerWidth < window.innerHeight);
+      let vertical = window.innerWidth < window.innerHeight;
+      setVertical(vertical);
+      setDualPiano(
+        vertical ? window.innerWidth > 650 : window.innerHeight > 650
+      );
     };
     window.addEventListener("resize", onResize);
     onResize();
@@ -98,34 +175,34 @@ export default function App() {
         className={styles.toolbar}
         vertical={isVertical}
         pianoConfig={pianoConfig}
-        numWhiteKeys={numWhiteKeys}
+        numWhiteKeys={numWhiteKeys * (dualPiano ? 2 : 1)}
         onPianoConfig={setPianoConfig}
       />
-      <Piano
-        vertical={isVertical}
-        className={styles.piano}
-        {...pianoConfig}
-        playNotes={playNotes}
-        onModifyNotes={(notes) => {
-          if (!pianoConfig.chordMode) {
-            return notes;
-          }
-
-          let modified = [];
-          for (let note of notes) {
-            let { note: n } = parseNote(note);
-            let minor = ["A", "E"].includes(n);
-            modified.push(note);
-            let higherNote = deltaNote(note, 12);
-            let scale = makeScale(higherNote, minor);
-            let chord = makeChord(scale, 1, 3, 5);
-            chord = optimalChordInversion(chord, "F4");
-            modified.push(...chord);
-          }
-          return modified;
-        }}
-        onResize={(wk) => setNumWhiteKeys(wk)}
-      />
+      <div className={styles.pianoContainer}>
+        <Piano
+          vertical={isVertical}
+          className={styles.piano}
+          {...pianoConfig}
+          loading={!toneLoaded}
+          onNoteDown={onNoteDown}
+          onNoteUp={onNoteUp}
+          highlightNotes={highlightNotes}
+          onResize={(wk) => setNumWhiteKeys(wk)}
+        />
+        {dualPiano && (
+          <Piano
+            vertical={isVertical}
+            className={styles.piano}
+            {...pianoConfig}
+            offset={pianoConfig.offset + numWhiteKeys}
+            loading={!toneLoaded}
+            onNoteDown={onNoteDown}
+            onNoteUp={onNoteUp}
+            highlightNotes={highlightNotes}
+            onResize={(wk) => setNumWhiteKeys(wk)}
+          />
+        )}
+      </div>
     </div>
   );
 }

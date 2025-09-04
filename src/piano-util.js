@@ -1,5 +1,18 @@
-export const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-export const WHITE_NOTES = NOTES.filter(n => n.length === 1);
+export const NOTES = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
+];
+export const WHITE_NOTES = NOTES.filter((n) => n.length === 1);
 
 export function parseNote(s) {
   let [_, note, octave] = s.match(/(.+)(\d)/) || [];
@@ -23,15 +36,17 @@ export function offsetToNote(offset) {
 }
 
 export function optimalChordInversion(chord, centerNote) {
-  let {octave: centerOctave} = parseNote(centerNote);
-  return chord.map(note => {
+  let { octave: centerOctave } = parseNote(centerNote);
+  return chord.map((note) => {
     // find the best octave for this note
     let { note: n } = parseNote(note);
-    let candidates = [-1, 0, 1].map(oct => {
-      let note = noteStr({ note: n, octave: centerOctave + oct })
-      let dist = Math.abs(noteDistance(note, centerNote));
-      return { note, dist };
-    }).sort((a, b) => a.dist - b.dist);
+    let candidates = [-1, 0, 1]
+      .map((oct) => {
+        let note = noteStr({ note: n, octave: centerOctave + oct });
+        let dist = Math.abs(noteDistance(note, centerNote));
+        return { note, dist };
+      })
+      .sort((a, b) => a.dist - b.dist);
     return candidates[0].note;
   });
 }
@@ -41,12 +56,18 @@ export function deltaNote(note, offset) {
   // TODO: boundaries (octave below 1, octave over N)
   return noteStr({
     note: NOTES[(NOTES.indexOf(n) + 12 + offset) % 12],
-    octave: octave + Math.floor((NOTES.indexOf(n) + offset) / 12)
+    octave: octave + Math.floor((NOTES.indexOf(n) + offset) / 12),
   });
 }
 
+export function diffNotes(before, after) {
+  let added = new Set(after.filter((n) => !before.includes(n)));
+  let removed = new Set(before.filter((n) => !after.includes(n)));
+  return { added, removed };
+}
+
 export function makeChord(scale, ...nums) {
-  return nums.map(n => scale[n - 1]);
+  return nums.map((n) => scale[n - 1]);
 }
 
 export function makeScale(note, minor) {
@@ -58,7 +79,7 @@ export function makeScale(note, minor) {
     deltaNote(note, 7),
     deltaNote(note, minor ? 8 : 9),
     deltaNote(note, minor ? 10 : 11),
-    deltaNote(note, 12)
+    deltaNote(note, 12),
   ];
 }
 
