@@ -187,9 +187,6 @@ export function Piano({
             redrawPiano();
           }
         }}
-        onContextMenu={(ev) => {
-          ev.preventDefault();
-        }}
       />
     </div>
   );
