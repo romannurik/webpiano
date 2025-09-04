@@ -24,6 +24,9 @@
 .loading {
   padding: 40px;
   box-sizing: border-box;
+  display: flex;
+  place-content: center;
+  place-items: center;
 }
 
 .piano {

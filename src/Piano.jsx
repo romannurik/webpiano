@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { makeNoteRangeForLayout, parseNote } from "./piano-util";
 import styles from "./Piano.module.scss";
 import { useResizeObserver } from "./useResizeObserver";
+import { LoadingSpinner } from "./LoadingSpinner";
 
 const BLACK_KEY_SIZE = 0.7;
 
@@ -161,7 +162,9 @@ export function Piano({
   }, [onNoteDown, onNoteUp, redrawPiano, hitTestMemo]);
 
   if (loading) {
-    return <div className={cn(className, styles.loading)}>Loading...</div>;
+    return <div className={cn(className, styles.loading)}>
+      <LoadingSpinner />
+    </div>;
   }
 
   return (
