@@ -1,11 +1,5 @@
 import cn from "classnames";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Tone from "tone";
 import styles from "./App.module.scss";
 import { Piano } from "./Piano";
@@ -19,6 +13,7 @@ import {
   optimalChordInversion,
   parseNote,
 } from "./piano-util";
+import type { PianoConfig } from "./types";
 
 const PIANO_CONFIG_LOCAL_STORAGE_KEY = "pianoSettings";
 
@@ -30,12 +25,12 @@ const PIANO_CONFIG_LOCAL_STORAGE_KEY = "pianoSettings";
   window.addEventListener("resize", update, false);
 })();
 
-let initialPianoConfig = undefined;
+let initialPianoConfig: PianoConfig;
 try {
   initialPianoConfig = JSON.parse(
     window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY]
   );
-  const { offset, keySize, instrument, dark } = initialPianoConfig;
+  const { offset, keySize, instrument } = initialPianoConfig || {};
   if (typeof offset !== "number" || !keySize || !instrument) {
     throw "invalid config";
   }
@@ -45,32 +40,35 @@ try {
     keySize: "large",
     instrument: Object.keys(INSTRUMENTS)[0],
     dark: false,
+    chordMode: false,
   };
 }
 
 export default function App() {
-  let [pianoConfig, setPianoConfig] = useState(initialPianoConfig);
+  let [pianoConfig, setPianoConfig] = useState<PianoConfig>(initialPianoConfig);
   let [isVertical, setVertical] = useState(false);
   let [dualPiano, setDualPiano] = useState(false);
   let [numWhiteKeys, setNumWhiteKeys] = useState(1);
 
-  let tone = useRef();
+  let tone = useRef<Tone.Sampler | Tone.PolySynth>(null);
   let [toneLoaded, setToneLoaded] = useState(false);
-  let [highlightNotes, setHighlightNotes] = useState([]);
+  let [highlightNotes, setHighlightNotes] = useState<string[]>([]);
 
   // Set up audio library
   useEffect(() => {
     tone.current = INSTRUMENTS[pianoConfig.instrument].load();
     (async () => {
       await Tone.loaded();
-      tone.current.toDestination?.();
+      tone.current!.toDestination?.();
       setToneLoaded(true);
     })();
-    return () => (tone.current = null);
+    return () => {
+      tone.current = null;
+    };
   }, [pianoConfig.instrument]);
 
   let transformActiveNotes = useCallback(
-    (notes) => {
+    (notes: string[]) => {
       if (!pianoConfig.chordMode) {
         return notes;
       }
@@ -91,9 +89,9 @@ export default function App() {
     [pianoConfig.chordMode]
   );
 
-  let downNotes = useRef([]);
-  let activeNotes = useRef([]);
-  let prevActiveNotes = useRef([]);
+  let downNotes = useRef<string[]>([]);
+  let activeNotes = useRef<string[]>([]);
+  let prevActiveNotes = useRef<string[]>([]);
 
   let { onNoteDown, onNoteUp } = useMemo(() => {
     let handleNotesChanged = () => {
@@ -103,16 +101,16 @@ export default function App() {
         prevActiveNotes.current,
         activeNotes.current
       );
-      added.forEach((n) => tone.current?.triggerAttack(n));
-      removed.forEach((n) => tone.current?.triggerRelease(n));
+      added.forEach((n) => tone.current?.triggerAttack(n as any));
+      removed.forEach((n) => tone.current?.triggerRelease(n as any));
       prevActiveNotes.current = activeNotes.current;
     };
 
-    let onNoteDown = (...notes) => {
+    let onNoteDown = (...notes: string[]) => {
       downNotes.current = [...downNotes.current, ...notes];
       handleNotesChanged();
     };
-    let onNoteUp = (...notes) => {
+    let onNoteUp = (...notes: string[]) => {
       downNotes.current = downNotes.current.filter((n) => !notes.includes(n));
       handleNotesChanged();
     };

@@ -5,7 +5,17 @@ import { IconButton } from "./components/IconButton";
 import styles from "./InstrumentPicker.module.scss";
 import { CATEGORIES, CATEGORY_ICONS, INSTRUMENTS } from "./instruments";
 
-export function InstrumentPicker({ onClose, selected, onSelect, vertical }) {
+export function InstrumentPicker({
+  onClose,
+  selected,
+  onSelect,
+  vertical,
+}: {
+  onClose: () => void;
+  onSelect?: (instrument: string) => void;
+  selected?: string;
+  vertical?: boolean;
+}) {
   return (
     <dialog className={cn(styles.root, { [styles.isVertical]: vertical })} open>
       <div className={styles.toolbar}>
@@ -41,7 +51,7 @@ export function InstrumentPicker({ onClose, selected, onSelect, vertical }) {
   );
 }
 
-function CategoryIcon({ category, ...props }) {
+function CategoryIcon({ category, ...props }: { category: string }) {
   let Icon = CATEGORY_ICONS[category];
   return <Icon {...props} />;
 }

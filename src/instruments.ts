@@ -5,7 +5,7 @@ import makeToneSalamander from "./samples/salamander";
 import { SampleLibrary } from "./tonejs-instruments";
 import { StringsIcon, TrumpetIcon } from "./MusicIcons";
 
-export const CATEGORY_ICONS = {
+export const CATEGORY_ICONS: Record<string, React.FC> = {
   Keyboard: KeyboardMusicIcon,
   String: StringsIcon,
   Guitar: GuitarIcon,
@@ -13,7 +13,14 @@ export const CATEGORY_ICONS = {
   Brass: TrumpetIcon,
 };
 
-export const INSTRUMENTS = {
+export type Instrument = {
+  load: () => Tone.Sampler | Tone.PolySynth;
+  title?: string;
+  icon?: React.FC;
+  category: string;
+}
+
+export const INSTRUMENTS: Record<string, Instrument> = {
   // Keyboard
   Salamader: {
     load: makeToneSalamander,
@@ -149,7 +156,7 @@ function makeTonePolySynth() {
   }).toDestination();
 }
 
-function makeInstrument(name) {
+function makeInstrument(name: string) {
   return () => {
     let instruments = SampleLibrary.load({
       instruments: [name],

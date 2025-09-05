@@ -1,5 +1,6 @@
 import cn from "classnames";
 import styles from "./IconButton.module.scss";
+import type { ReactNode } from "react";
 
 export function IconButton({
   className,
@@ -8,6 +9,12 @@ export function IconButton({
   icon,
   onClick,
   ...props
+}: {
+  className?: string;
+  disabled?: boolean;
+  checked?: boolean;
+  icon: ReactNode;
+  onClick: () => void;
 }) {
   return (
     <button
@@ -23,12 +30,7 @@ export function IconButton({
   );
 }
 
-function prevOption(options, current) {
-  let curIndex = options.indexOf(current);
-  return curIndex <= 0 ? options[options.length - 1] : options[curIndex - 1];
-}
-
-function nextOption(options, current) {
+function nextOption<T>(options: T[], current: T) {
   let curIndex = options.indexOf(current);
   return curIndex < 0 || curIndex === options.length - 1
     ? options[0]
@@ -42,6 +44,12 @@ export function RotateOptionsIconButton({
   value,
   onChange,
   ...props
+}: {
+  icon: ReactNode;
+  className?: string;
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
     <IconButton

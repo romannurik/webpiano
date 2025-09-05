@@ -1,9 +1,10 @@
 import cn from "classnames";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { LoadingSpinner } from "./LoadingSpinner";
 import { makeNoteRangeForLayout, parseNote } from "./piano-util";
 import styles from "./Piano.module.scss";
+import type { PianoConfig } from "./types";
 import { useResizeObserver } from "./useResizeObserver";
-import { LoadingSpinner } from "./LoadingSpinner";
 
 const BLACK_KEY_SIZE = 0.7;
 
@@ -34,20 +35,27 @@ export function Piano({
   highlightNotes,
   onNoteDown,
   onNoteUp,
-  onModifyNotes,
-}) {
+}: {
+  className?: string;
+  vertical?: boolean;
+  onResize?: (numWhiteKeys: number) => void;
+  loading?: boolean;
+  highlightNotes?: string[];
+  onNoteDown?: (...notes: string[]) => void;
+  onNoteUp?: (...notes: string[]) => void;
+} & PianoConfig) {
   offset = Math.max(0, Math.min(108, offset));
 
   // drawing and layout
-  let [canvas, setCanvas] = useState();
+  let [canvas, setCanvas] = useState<HTMLCanvasElement>();
   let [numWhiteKeys, setNumWhiteKeys] = useState(10);
   let [colors, setColors] = useState({});
 
   // elements
-  let [container, setContainer] = useState(null);
+  let [container, setContainer] = useState<HTMLElement>();
 
   // track active notes + pointers
-  let pointers = useRef({});
+  let pointers = useRef<Record<number, string>>({});
 
   // Get colors
   useEffect(() => {
@@ -90,6 +98,7 @@ export function Piano({
   useResizeObserver(
     container,
     () => {
+      if (!canvas) return;
       redrawPiano();
       let canvasLongSize = Math.max(canvas.offsetWidth, canvas.offsetHeight);
       let numWhiteKeys = Math.round(
@@ -112,12 +121,13 @@ export function Piano({
 
   // Pressed key handling
   let hitTestMemo = useCallback(
-    (x, y) => hitTest(x, y, { canvas, vertical, offset, numWhiteKeys }),
+    (x: number, y: number) =>
+      hitTest(x, y, { canvas: canvas!, vertical, offset, numWhiteKeys }),
     [canvas, vertical, offset, numWhiteKeys]
   );
 
   useEffect(() => {
-    let cancel = (ev) => {
+    let cancel = (ev: PointerEvent) => {
       // lifting finger
       let note = pointers.current[ev.pointerId];
       if (!note) return;
@@ -128,7 +138,7 @@ export function Piano({
         redrawPiano();
       }
     };
-    let move = (ev) => {
+    let move = (ev: PointerEvent) => {
       // moving your finger
       let previousNote = pointers.current[ev.pointerId];
       if (!previousNote) return; // not pressed
@@ -162,18 +172,20 @@ export function Piano({
   }, [onNoteDown, onNoteUp, redrawPiano, hitTestMemo]);
 
   if (loading) {
-    return <div className={cn(className, styles.loading)}>
-      <LoadingSpinner />
-    </div>;
+    return (
+      <div className={cn(className, styles.loading)}>
+        <LoadingSpinner />
+      </div>
+    );
   }
 
   return (
     <div
       className={cn(className, styles.container)}
-      ref={(node) => setContainer(node)}
+      ref={(node) => setContainer(node || undefined)}
     >
       <canvas
-        ref={(node) => setCanvas(node)}
+        ref={(node) => setCanvas(node || undefined)}
         className={styles.piano}
         onPointerDown={(ev) => {
           // pressing finger
@@ -192,15 +204,34 @@ export function Piano({
   );
 }
 
-function layoutKeys({ canvas, vertical, offset, numWhiteKeys }) {
+interface KeyLayout {
+  note: string;
+  black: boolean;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function layoutKeys({
+  canvas,
+  vertical,
+  offset,
+  numWhiteKeys,
+}: {
+  canvas: HTMLCanvasElement;
+  vertical?: boolean;
+  offset: number;
+  numWhiteKeys: number;
+}): KeyLayout[] {
   let width = canvas.width;
   let height = canvas.height;
   let canvasLongSize = !vertical ? width : height;
   let canvasShortSize = !vertical ? height : width;
-  let longPosProp = !vertical ? "x" : "y";
-  let shortPosProp = !vertical ? "y" : "x";
-  let longSizeProp = !vertical ? "w" : "h";
-  let shortSizeProp = !vertical ? "h" : "w";
+  let longPosProp = !vertical ? "x" as const : "y" as const;
+  let shortPosProp = !vertical ? "y" as const : "x" as const;
+  let longSizeProp = !vertical ? "w" as const : "h" as const;
+  let shortSizeProp = !vertical ? "h" as const : "w" as const;
   // we also layout extra white keys to the left, so we can render
   // the black keys near them... except at the very beginning of the
   // piano (the Math.min part)
@@ -212,14 +243,14 @@ function layoutKeys({ canvas, vertical, offset, numWhiteKeys }) {
   );
   let whiteKeySize = (canvasLongSize + 1) / numWhiteKeys;
   const startLP = ((offset % 1) + layoutExtraWhiteKeysLeft) * whiteKeySize;
-  let realLP = (longPos, keySize) =>
+  let realLP = (longPos: number, keySize: number) =>
     vertical ? canvasLongSize - longPos - keySize + startLP : longPos - startLP;
   let wkIndex = 0;
   return notes
     .map((fullNote) => {
       let { note, octave } = parseNote(fullNote);
       let black = note.endsWith("#");
-      let n;
+      let n: KeyLayout;
       let longPos = wkIndex * whiteKeySize;
       if (black) {
         let keySize = Math.round(whiteKeySize * BLACK_KEY_SIZE);
@@ -230,7 +261,7 @@ function layoutKeys({ canvas, vertical, offset, numWhiteKeys }) {
           [longSizeProp]: keySize,
           [shortSizeProp]: Math.round(canvasShortSize / 2),
           black,
-        };
+        } as unknown as KeyLayout;
       } else {
         let keySize = whiteKeySize;
         n = {
@@ -240,7 +271,7 @@ function layoutKeys({ canvas, vertical, offset, numWhiteKeys }) {
           [longSizeProp]: keySize,
           [shortSizeProp]: canvasShortSize + 1,
           black,
-        };
+        } as unknown as KeyLayout;
         ++wkIndex;
       }
       return n;
@@ -248,7 +279,21 @@ function layoutKeys({ canvas, vertical, offset, numWhiteKeys }) {
     .sort((a, b) => (a.black ? -1 : b.black ? 1 : 0));
 }
 
-function hitTest(testX, testY, { canvas, vertical, offset, numWhiteKeys }) {
+function hitTest(
+  testX: number,
+  testY: number,
+  {
+    canvas,
+    vertical,
+    offset,
+    numWhiteKeys,
+  }: {
+    canvas: HTMLCanvasElement;
+    vertical?: boolean;
+    offset: number;
+    numWhiteKeys: number;
+  }
+) {
   let layout = layoutKeys({ canvas, vertical, offset, numWhiteKeys });
   let tl = canvas.getBoundingClientRect();
   testX -= tl.left;
@@ -271,10 +316,18 @@ function drawPiano({
   offset,
   numWhiteKeys,
   colors,
+}: {
+  pointers: Record<number, string>;
+  downNotes: string[];
+  canvas: HTMLCanvasElement;
+  vertical?: boolean;
+  offset: number;
+  numWhiteKeys: number;
+  colors: Record<string, string>;
 }) {
   let layout = layoutKeys({ canvas, vertical, offset, numWhiteKeys }).reverse();
   let pressedNotes = new Set(Object.values(pointers));
-  let ctx = canvas.getContext("2d");
+  let ctx = canvas.getContext("2d")!;
   let width = canvas.width;
   let height = canvas.height;
   ctx.save();

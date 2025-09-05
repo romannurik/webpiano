@@ -14,30 +14,32 @@ export const NOTES = [
 ];
 export const WHITE_NOTES = NOTES.filter((n) => n.length === 1);
 
-export function parseNote(s) {
+export type ParsedNote = { note: string; octave: number };
+
+export function parseNote(s: string): ParsedNote {
   let [_, note, octave] = s.match(/(.+)(\d)/) || [];
   return { note, octave: parseInt(octave) };
 }
 
-export function noteStr({ note, octave }) {
+export function noteStr({ note, octave }: ParsedNote) {
   return `${note}${octave}`;
 }
 
-export function noteDistance(a, b) {
+export function noteDistance(a: string, b: string) {
   let { note: aNote, octave: aOctave } = parseNote(a);
   let { note: bNote, octave: bOctave } = parseNote(b);
   return (bOctave - aOctave) * 12 + NOTES.indexOf(bNote) - NOTES.indexOf(aNote);
 }
 
-export function offsetToNote(offset) {
+export function offsetToNote(offset: number) {
   const octave = Math.floor(offset / 7);
   const note = WHITE_NOTES[Math.floor(offset) - octave * 7];
   return { note, octave };
 }
 
-export function optimalChordInversion(chord, centerNote) {
+export function optimalChordInversion(chord: string[], centerNote: string) {
   let { octave: centerOctave } = parseNote(centerNote);
-  return chord.map((note) => {
+  return chord.map((note: string) => {
     // find the best octave for this note
     let { note: n } = parseNote(note);
     let candidates = [-1, 0, 1]
@@ -51,7 +53,7 @@ export function optimalChordInversion(chord, centerNote) {
   });
 }
 
-export function deltaNote(note, offset) {
+export function deltaNote(note: string, offset: number) {
   let { note: n, octave } = parseNote(note);
   // TODO: boundaries (octave below 1, octave over N)
   return noteStr({
@@ -60,17 +62,17 @@ export function deltaNote(note, offset) {
   });
 }
 
-export function diffNotes(before, after) {
+export function diffNotes(before: string[], after: string[]) {
   let added = new Set(after.filter((n) => !before.includes(n)));
   let removed = new Set(before.filter((n) => !after.includes(n)));
   return { added, removed };
 }
 
-export function makeChord(scale, ...nums) {
+export function makeChord(scale: string[], ...nums: number[]) {
   return nums.map((n) => scale[n - 1]);
 }
 
-export function makeScale(note, minor) {
+export function makeScale(note: string, minor?: boolean) {
   return [
     note,
     deltaNote(note, 2),
@@ -83,9 +85,9 @@ export function makeScale(note, minor) {
   ];
 }
 
-export function makeNoteRangeForLayout(offset, numWhiteKeys) {
+export function makeNoteRangeForLayout(offset: number, numWhiteKeys: number) {
   // let to = parseNote(to);
-  let to = {};
+  let to: ParsedNote = { note: "C", octave: -1 };
   let notes = [];
   let cur = offsetToNote(offset);
   let i = 0;

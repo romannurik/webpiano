@@ -8,12 +8,13 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import styles from "./PianoToolbar.module.scss";
 import { CATEGORY_ICONS, INSTRUMENTS } from "./instruments";
 import { IconButton, RotateOptionsIconButton } from "./components/IconButton";
 import { InstrumentPicker } from "./InstrumentPicker";
+import type { PianoConfig } from "./types";
 
 export function PianoToolbar({
   className,
@@ -21,19 +22,25 @@ export function PianoToolbar({
   onPianoConfig,
   vertical,
   numWhiteKeys,
+}: {
+  className?: string;
+  pianoConfig: PianoConfig;
+  onPianoConfig: (config: PianoConfig) => void;
+  vertical?: boolean;
+  numWhiteKeys: number;
 }) {
   let { instrument, keySize, offset, dark } = pianoConfig;
   let [isFullscreen, setFullscreen] = useState(false);
   let [showInstrumentPicker, setShowInstrumentPicker] = useState(false);
 
-  let updateConfig = (c) => {
+  let updateConfig = (c: Partial<PianoConfig>) => {
     onPianoConfig({ ...pianoConfig, ...c });
   };
 
   useEffect(() => {
     let onFullscreenChange = () => {
       setFullscreen(!!document.fullscreenElement);
-      flushSync(); // whhhyyy is this necessaaarrryyyy??
+      flushSync(() => {}); // whhhyyy is this necessaaarrryyyy??
     };
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => {
@@ -48,7 +55,7 @@ export function PianoToolbar({
           vertical={vertical}
           selected={pianoConfig.instrument}
           onClose={() => setShowInstrumentPicker(false)}
-          onSelect={(instrument) => {
+          onSelect={(instrument: string) => {
             updateConfig({ instrument });
             setShowInstrumentPicker(false);
           }}
@@ -56,8 +63,6 @@ export function PianoToolbar({
       )}
       <div className={cn(className, styles.toolbar)}>
         <IconButton
-          options={Object.keys(INSTRUMENTS)}
-          value={instrument}
           onClick={() => setShowInstrumentPicker(true)}
           icon={<InstrumentIcon instrument={instrument} />}
         />
@@ -67,9 +72,13 @@ export function PianoToolbar({
           onClick={() => updateConfig({ chordMode: !pianoConfig.chordMode })}
         />
         <RotateOptionsIconButton
-          options={["normal", "large", "huge"]}
+          options={
+            ["normal", "large", "huge"] satisfies Array<PianoConfig["keySize"]>
+          }
           value={keySize}
-          onChange={(keySize) => updateConfig({ keySize })}
+          onChange={(keySize) =>
+            updateConfig({ keySize: keySize as PianoConfig["keySize"] })
+          }
           icon={keySize === "huge" ? <ZoomOutIcon /> : <ZoomInIcon />}
         />
         <div
@@ -81,7 +90,7 @@ export function PianoToolbar({
             let origOffset = pianoConfig.offset;
             let downOffset = 0;
 
-            let hit = (lp, first) => {
+            let hit = (lp: number, first?: boolean) => {
               let pct = (lp - lpStart) / (lpEnd - lpStart);
               let offset = pct * 7 * 9; // - numWhiteKeys / 2;
               if (first) {
@@ -101,7 +110,8 @@ export function PianoToolbar({
               window.removeEventListener("pointermove", move);
             };
 
-            let move = (ev) => hit(vertical ? ev.clientY : ev.clientX);
+            let move = (ev: PointerEvent) =>
+              hit(vertical ? ev.clientY : ev.clientX);
             hit(vertical ? ev.clientY : ev.clientX, true);
 
             window.addEventListener("pointerup", cancel);
@@ -150,7 +160,7 @@ export function PianoToolbar({
   );
 }
 
-function InstrumentIcon({ instrument, ...props }) {
+function InstrumentIcon({ instrument, ...props }: { instrument: string }) {
   const Icon =
     INSTRUMENTS[instrument].icon ||
     CATEGORY_ICONS[INSTRUMENTS[instrument].category];
