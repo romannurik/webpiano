@@ -34,7 +34,7 @@ export function noteDistance(a: string, b: string) {
 export function offsetToNote(offset: number) {
   const octave = Math.floor(offset / 7);
   const note = WHITE_NOTES[Math.floor(offset) - octave * 7];
-  return { note, octave };
+  return { note, octave: octave + 1 };
 }
 
 export function optimalChordInversion(chord: string[], centerNote: string) {

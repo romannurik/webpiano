@@ -3,17 +3,19 @@ import {
   ExpandIcon,
   MinimizeIcon,
   MoonIcon,
+  Music4Icon,
+  PencilIcon,
   SunIcon,
-  WandSparklesIcon,
   ZoomInIcon,
-  ZoomOutIcon,
+  ZoomOutIcon
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { flushSync } from "react-dom";
-import styles from "./PianoToolbar.module.scss";
-import { CATEGORY_ICONS, INSTRUMENTS } from "./instruments";
+import { useAppState } from "./App";
 import { IconButton, RotateOptionsIconButton } from "./components/IconButton";
 import { InstrumentPicker } from "./InstrumentPicker";
+import { CATEGORY_ICONS, INSTRUMENTS } from "./instruments";
+import styles from "./PianoToolbar.module.scss";
 import type { PianoConfig } from "./types";
 
 export function PianoToolbar({
@@ -30,6 +32,7 @@ export function PianoToolbar({
   numWhiteKeys: number;
 }) {
   let { instrument, keySize, offset, dark } = pianoConfig;
+  let { editingChords, updateAppState } = useAppState();
   let [isFullscreen, setFullscreen] = useState(false);
   let [showInstrumentPicker, setShowInstrumentPicker] = useState(false);
 
@@ -67,10 +70,19 @@ export function PianoToolbar({
           icon={<InstrumentIcon instrument={instrument} />}
         />
         <IconButton
-          icon={<WandSparklesIcon />}
+          icon={<Music4Icon />}
           checked={!!pianoConfig.chordMode}
           onClick={() => updateConfig({ chordMode: !pianoConfig.chordMode })}
         />
+        {pianoConfig.chordMode && (
+          <>
+            <IconButton
+              icon={<PencilIcon />}
+              checked={!!editingChords}
+              onClick={() => updateAppState({ editingChords: !editingChords })}
+            />
+          </>
+        )}
         <RotateOptionsIconButton
           options={
             ["normal", "large", "huge"] satisfies Array<PianoConfig["keySize"]>

@@ -1,6 +1,7 @@
 :root {
   user-select: none;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
 }
 
 :root,
@@ -14,9 +15,13 @@ body {
   --color-border: #222;
   --color-key-border: #222;
   --color-key-white: #fafafa;
-  --color-key-white-pressed: #ccc;
+  --color-key-white-pressed: hsl(190, 65%, 75%);
+  --color-key-white-highlight: hsl(260, 65%, 75%);
+  --color-key-white-label: #888;
   --color-key-black: #222;
-  --color-key-black-pressed: #555;
+  --color-key-black-pressed: hsl(190, 45%, 35%);
+  --color-key-black-highlight: hsl(260, 45%, 35%);
+  --color-key-black-label: #444;
   --color-toolbar-thumb-diff: #fff;
   --color-toolbar-black-key: #{rgba(#000, 0.3)};
 
@@ -27,9 +32,13 @@ body {
     --color-border: #444;
     --color-key-border: #444;
     --color-key-white: #222;
-    --color-key-white-pressed: #181818;
+    --color-key-white-pressed: hsl(190, 35%, 20%);
+    --color-key-white-highlight: hsl(260, 35%, 20%);
+    --color-key-white-label: #444;
     --color-key-black: #000;
-    --color-key-black-pressed: #141414;
+    --color-key-black-pressed: hsl(190, 35%, 20%);
+    --color-key-black-highlight: hsl(260, 35%, 20%);
+    --color-key-black-label: #444;
     --color-toolbar-thumb-diff: #{rgba(#fff, 0.2)};
     --color-toolbar-black-key: #{rgba(#ccc, 0.2)};
   }

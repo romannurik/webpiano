@@ -1,7 +1,7 @@
 import cn from "classnames";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LoadingSpinner } from "./LoadingSpinner";
-import { makeNoteRangeForLayout, parseNote } from "./piano-util";
+import { makeNoteRangeForLayout, noteStr, parseNote } from "./piano-util";
 import styles from "./Piano.module.scss";
 import type { PianoConfig } from "./types";
 import { useResizeObserver } from "./useResizeObserver";
@@ -16,12 +16,24 @@ const IDEAL_KEY_SIZE_PX = {
   huge: 80,
 };
 
-const PIANO_COLORS = {
-  "key-white": "#fff",
-  "key-white-pressed": "#ccc",
-  "key-black": "#000",
-  "key-black-pressed": "#333",
-  "key-border": "#000",
+const LABEL_FONT = "Inter";
+
+const DEFAULT_PIANO_COLORS = {
+  "key-white": "#f00",
+  "key-white-pressed": "#f00",
+  "key-white-highlight": "#f00",
+  "key-white-label": "#f00",
+  "key-black": "#f00",
+  "key-black-pressed": "#f00",
+  "key-black-highlight": "#f00",
+  "key-black-label": "#f00",
+  "key-border": "#f00",
+} as const;
+
+type PianoColorKey = keyof typeof DEFAULT_PIANO_COLORS;
+
+export type KeyAnnotation = {
+  label?: string;
 };
 
 export function Piano({
@@ -33,6 +45,7 @@ export function Piano({
   onResize,
   loading,
   highlightNotes,
+  annotations,
   onNoteDown,
   onNoteUp,
 }: {
@@ -41,6 +54,7 @@ export function Piano({
   onResize?: (numWhiteKeys: number) => void;
   loading?: boolean;
   highlightNotes?: string[];
+  annotations?: Record<string, KeyAnnotation>;
   onNoteDown?: (...notes: string[]) => void;
   onNoteUp?: (...notes: string[]) => void;
 } & PianoConfig) {
@@ -49,7 +63,8 @@ export function Piano({
   // drawing and layout
   let [canvas, setCanvas] = useState<HTMLCanvasElement>();
   let [numWhiteKeys, setNumWhiteKeys] = useState(10);
-  let [colors, setColors] = useState({});
+  let [colors, setColors] =
+    useState<Record<PianoColorKey, string>>(DEFAULT_PIANO_COLORS);
 
   // elements
   let [container, setContainer] = useState<HTMLElement>();
@@ -63,11 +78,11 @@ export function Piano({
       let cs = window.getComputedStyle(document.body);
       setColors(
         Object.fromEntries(
-          Object.keys(PIANO_COLORS).map((id) => [
+          Object.keys(DEFAULT_PIANO_COLORS).map((id) => [
             id,
             cs.getPropertyValue(`--color-${id}`),
           ])
-        )
+        ) as Record<PianoColorKey, string>
       );
     });
   }, [dark]);
@@ -86,14 +101,23 @@ export function Piano({
     }
     drawPiano({
       pointers: pointers.current,
-      downNotes: highlightNotes || [],
+      highlightNotes,
       canvas,
       vertical,
       offset,
       numWhiteKeys,
+      annotations,
       colors,
     });
-  }, [canvas, colors, vertical, offset, numWhiteKeys, highlightNotes]);
+  }, [
+    canvas,
+    colors,
+    vertical,
+    offset,
+    numWhiteKeys,
+    highlightNotes,
+    annotations,
+  ]);
 
   useResizeObserver(
     container,
@@ -171,6 +195,14 @@ export function Piano({
     };
   }, [onNoteDown, onNoteUp, redrawPiano, hitTestMemo]);
 
+  useEffect(() => {
+    if (canvas && !navigator.userAgent.includes('Android')) {
+      canvas.addEventListener('contextmenu', ev => {
+        ev.preventDefault();
+      })
+    }
+  }, [canvas]);
+
   if (loading) {
     return (
       <div className={cn(className, styles.loading)}>
@@ -224,14 +256,14 @@ function layoutKeys({
   offset: number;
   numWhiteKeys: number;
 }): KeyLayout[] {
-  let width = canvas.width;
-  let height = canvas.height;
+  let width = canvas.offsetWidth;
+  let height = canvas.offsetHeight;
   let canvasLongSize = !vertical ? width : height;
   let canvasShortSize = !vertical ? height : width;
-  let longPosProp = !vertical ? "x" as const : "y" as const;
-  let shortPosProp = !vertical ? "y" as const : "x" as const;
-  let longSizeProp = !vertical ? "w" as const : "h" as const;
-  let shortSizeProp = !vertical ? "h" as const : "w" as const;
+  let longPosProp = !vertical ? ("x" as const) : ("y" as const);
+  let shortPosProp = !vertical ? ("y" as const) : ("x" as const);
+  let longSizeProp = !vertical ? ("w" as const) : ("h" as const);
+  let shortSizeProp = !vertical ? ("h" as const) : ("w" as const);
   // we also layout extra white keys to the left, so we can render
   // the black keys near them... except at the very beginning of the
   // piano (the Math.min part)
@@ -255,7 +287,7 @@ function layoutKeys({
       if (black) {
         let keySize = Math.round(whiteKeySize * BLACK_KEY_SIZE);
         n = {
-          note: `${note}${octave}`,
+          note: noteStr({ note, octave }),
           [longPosProp]: Math.round(realLP(longPos - keySize / 2, keySize)),
           [shortPosProp]: 0,
           [longSizeProp]: keySize,
@@ -265,7 +297,7 @@ function layoutKeys({
       } else {
         let keySize = whiteKeySize;
         n = {
-          note: `${note}${octave}`,
+          note: noteStr({ note, octave }),
           [longPosProp]: realLP(longPos - 0.5, keySize),
           [shortPosProp]: -1,
           [longSizeProp]: keySize,
@@ -298,8 +330,6 @@ function hitTest(
   let tl = canvas.getBoundingClientRect();
   testX -= tl.left;
   testY -= tl.top;
-  testX *= RENDER_DENSITY;
-  testY *= RENDER_DENSITY;
   for (let { note, x, y, w, h } of layout) {
     if (testX >= x && testX < x + w && testY >= y && testY < y + h) {
       return note;
@@ -310,20 +340,22 @@ function hitTest(
 
 function drawPiano({
   pointers,
-  downNotes,
+  highlightNotes,
   canvas,
   vertical,
   offset,
   numWhiteKeys,
+  annotations,
   colors,
 }: {
   pointers: Record<number, string>;
-  downNotes: string[];
+  highlightNotes?: string[];
   canvas: HTMLCanvasElement;
   vertical?: boolean;
   offset: number;
   numWhiteKeys: number;
-  colors: Record<string, string>;
+  annotations?: Record<string, KeyAnnotation>;
+  colors: Record<PianoColorKey, string>;
 }) {
   let layout = layoutKeys({ canvas, vertical, offset, numWhiteKeys }).reverse();
   let pressedNotes = new Set(Object.values(pointers));
@@ -333,31 +365,50 @@ function drawPiano({
   ctx.save();
   ctx.clearRect(0, 0, width, height);
   ctx.strokeStyle = colors["key-border"];
-  ctx.lineWidth = Math.round(Math.max(2 * RENDER_DENSITY, 1));
-  let corner = 5 * RENDER_DENSITY;
+  ctx.scale(RENDER_DENSITY, RENDER_DENSITY);
+  ctx.lineWidth = 2;
+
+  if (vertical) {
+    ctx.translate(0, height);
+    ctx.rotate((-90 * Math.PI) / 180);
+  }
 
   for (let { x, y, w, h, black, note } of layout) {
+    if (vertical) {
+      [x, y, w, h] = [y, x, h, w];
+      x = height - (x + w);
+    }
+    let annotation = annotations?.[note];
     ctx.beginPath();
     if (black) {
-      if (vertical) {
-        ctx.roundRect(x, y - 0.5, w + 0.5, h + 1, [0, corner, corner, 0]);
-      } else {
-        ctx.roundRect(x - 0.5, y, w + 1, h + 0.5, [0, 0, corner, corner]);
-      }
+      ctx.roundRect(x - 0.5, y, w + 1, h + 0.5, [0, 0, 5, 5]);
     } else {
       ctx.rect(x, y, w, h);
     }
     ctx.closePath();
-    if (pressedNotes.has(note) || downNotes.includes(note)) {
+    ctx.fillStyle = black ? colors["key-black"] : colors["key-white"];
+    ctx.fill();
+    if (pressedNotes.has(note)) {
       ctx.fillStyle = black
         ? colors["key-black-pressed"]
         : colors["key-white-pressed"];
       ctx.fill();
-    } else {
-      ctx.fillStyle = black ? colors["key-black"] : colors["key-white"];
+    } else if (highlightNotes?.includes(note)) {
+      ctx.fillStyle = black
+        ? colors["key-black-highlight"]
+        : colors["key-white-highlight"];
       ctx.fill();
     }
     ctx.stroke();
+    if (annotation?.label) {
+      ctx.fillStyle = black
+        ? colors["key-black-label"]
+        : colors["key-white-label"];
+      ctx.font = `700 20px ${LABEL_FONT}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(annotation.label, x + w / 2, y + h - 16);
+    }
   }
 
   ctx.restore();

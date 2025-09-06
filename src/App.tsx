@@ -1,8 +1,16 @@
 import cn from "classnames";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as Tone from "tone";
 import styles from "./App.module.scss";
-import { Piano } from "./Piano";
+import { Piano, type KeyAnnotation } from "./Piano";
 import { PianoToolbar } from "./PianoToolbar";
 import { INSTRUMENTS } from "./instruments";
 import {
@@ -10,10 +18,11 @@ import {
   diffNotes,
   makeChord,
   makeScale,
+  noteStr,
   optimalChordInversion,
   parseNote,
 } from "./piano-util";
-import type { PianoConfig } from "./types";
+import type { ChordType, PianoConfig } from "./types";
 
 const PIANO_CONFIG_LOCAL_STORAGE_KEY = "pianoSettings";
 
@@ -24,6 +33,21 @@ const PIANO_CONFIG_LOCAL_STORAGE_KEY = "pianoSettings";
   update();
   window.addEventListener("resize", update, false);
 })();
+
+export type AppState = {
+  editingChords: boolean;
+};
+
+const AppStateContext = createContext<
+  AppState & {
+    updateAppState: (updates: Partial<AppState>) => void;
+  }
+>({
+  editingChords: false,
+  updateAppState: () => {},
+});
+
+export const useAppState = () => useContext(AppStateContext);
 
 let initialPianoConfig: PianoConfig;
 try {
@@ -53,6 +77,15 @@ export default function App() {
   let tone = useRef<Tone.Sampler | Tone.PolySynth>(null);
   let [toneLoaded, setToneLoaded] = useState(false);
   let [highlightNotes, setHighlightNotes] = useState<string[]>([]);
+  let [appState, setAppState] = useState<AppState>({
+    editingChords: false,
+  });
+
+  useEffect(() => {
+    if (!pianoConfig.chordMode) {
+      setAppState((prev) => ({ ...prev, editingChords: false }));
+    }
+  }, [pianoConfig.chordMode]);
 
   // Set up audio library
   useEffect(() => {
@@ -67,55 +100,84 @@ export default function App() {
     };
   }, [pianoConfig.instrument]);
 
-  let transformActiveNotes = useCallback(
-    (notes: string[]) => {
-      if (!pianoConfig.chordMode) {
-        return notes;
-      }
+  let noteTransformer = useRef<(notes: string[]) => string[]>(null);
 
-      let modified = [];
-      for (let note of notes) {
-        let { note: n } = parseNote(note);
-        let minor = ["A", "E"].includes(n);
-        modified.push(note);
-        let higherNote = deltaNote(note, 12);
-        let scale = makeScale(higherNote, minor);
-        let chord = makeChord(scale, 1, 3, 5);
-        chord = optimalChordInversion(chord, "F4");
-        modified.push(...chord);
-      }
-      return modified;
-    },
-    [pianoConfig.chordMode]
-  );
+  useEffect(() => {
+    noteTransformer.current = null;
+    if (pianoConfig.chordMode) {
+      noteTransformer.current = (notes) => {
+        // compute actual notes to play when in chord mode
+        let modified = [];
+        for (let note of notes) {
+          let { note: n } = parseNote(note);
+          let minor = pianoConfig.chordModeConfig?.[n] === "minor";
+          modified.push(note);
+          let higherNote = deltaNote(note, 12);
+          let scale = makeScale(higherNote, minor);
+          let chord = makeChord(scale, 1, 3, 5);
+          chord = optimalChordInversion(chord, "F4");
+          modified.push(...chord);
+        }
+        return modified;
+      };
+    }
+  }, [pianoConfig]);
 
   let downNotes = useRef<string[]>([]);
   let activeNotes = useRef<string[]>([]);
   let prevActiveNotes = useRef<string[]>([]);
 
-  let { onNoteDown, onNoteUp } = useMemo(() => {
-    let handleNotesChanged = () => {
-      activeNotes.current = transformActiveNotes(downNotes.current);
-      setHighlightNotes(activeNotes.current);
-      let { added, removed } = diffNotes(
-        prevActiveNotes.current,
-        activeNotes.current
-      );
-      added.forEach((n) => tone.current?.triggerAttack(n as any));
-      removed.forEach((n) => tone.current?.triggerRelease(n as any));
-      prevActiveNotes.current = activeNotes.current;
-    };
+  let handleNotesChanged = useCallback(() => {
+    let notes = downNotes.current;
+    activeNotes.current = noteTransformer.current?.(notes) || notes;
+    setHighlightNotes(activeNotes.current);
+    let { added, removed } = diffNotes(
+      prevActiveNotes.current,
+      activeNotes.current
+    );
+    added.forEach((n) => tone.current?.triggerAttack(n as any));
+    removed.forEach((n) => tone.current?.triggerRelease(n as any));
+    prevActiveNotes.current = activeNotes.current;
+  }, []);
 
-    let onNoteDown = (...notes: string[]) => {
+  let onNoteDown = useCallback(
+    (...notes: string[]) => {
       downNotes.current = [...downNotes.current, ...notes];
-      handleNotesChanged();
-    };
-    let onNoteUp = (...notes: string[]) => {
+      if (appState.editingChords) {
+        setPianoConfig((prev) => ({
+          ...prev,
+          chordModeConfig: {
+            ...prev.chordModeConfig,
+            ...Object.fromEntries(
+              notes.map((n) => {
+                let { note } = parseNote(n);
+                let newChord: ChordType =
+                  prev.chordModeConfig?.[note] || "major";
+                if (newChord === "major") {
+                  newChord = "minor";
+                } else {
+                  newChord = "major";
+                }
+                return [note, newChord];
+              })
+            ),
+          },
+        }));
+        setTimeout(() => handleNotesChanged());
+      } else {
+        handleNotesChanged();
+      }
+    },
+    [handleNotesChanged, appState.editingChords]
+  );
+
+  let onNoteUp = useCallback(
+    (...notes: string[]) => {
       downNotes.current = downNotes.current.filter((n) => !notes.includes(n));
       handleNotesChanged();
-    };
-    return { onNoteDown, onNoteUp };
-  }, [transformActiveNotes]);
+    },
+    [handleNotesChanged]
+  );
 
   // play notes on a sequence
   // useEffect(() => {
@@ -167,40 +229,74 @@ export default function App() {
       JSON.stringify(pianoConfig);
   }, [pianoConfig]);
 
+  let annotations = useMemo(() => {
+    let annotations: Record<string, KeyAnnotation> = {};
+    if (!appState.editingChords) {
+      return annotations;
+    }
+
+    for (let [k, chord] of Object.entries(pianoConfig.chordModeConfig || {})) {
+      for (let i = 1; i <= 9; i++) {
+        let label = {
+          major: "",
+          minor: "m",
+        }[chord || "major"];
+        annotations[noteStr({ note: k, octave: i })] = {
+          label,
+        };
+      }
+    }
+
+    return annotations;
+  }, [pianoConfig.chordModeConfig, appState.editingChords]);
+
+  let appStateWithUpdate = useMemo(
+    () => ({
+      ...appState,
+      updateAppState: (updates: Partial<AppState>) =>
+        setAppState((prev) => ({ ...prev, ...updates })),
+    }),
+    [appState]
+  );
+
   return (
-    <div className={cn(styles.app, { [styles.isVertical]: isVertical })}>
-      <PianoToolbar
-        className={styles.toolbar}
-        vertical={isVertical}
-        pianoConfig={pianoConfig}
-        numWhiteKeys={numWhiteKeys * (dualPiano ? 2 : 1)}
-        onPianoConfig={setPianoConfig}
-      />
-      <div className={styles.pianoContainer}>
-        <Piano
+    <AppStateContext.Provider value={appStateWithUpdate}>
+      <div className={cn(styles.app, { [styles.isVertical]: isVertical })}>
+        <PianoToolbar
+          className={styles.toolbar}
           vertical={isVertical}
-          className={styles.piano}
-          {...pianoConfig}
-          loading={!toneLoaded}
-          onNoteDown={onNoteDown}
-          onNoteUp={onNoteUp}
-          highlightNotes={highlightNotes}
-          onResize={(wk) => setNumWhiteKeys(wk)}
+          pianoConfig={pianoConfig}
+          numWhiteKeys={numWhiteKeys * (dualPiano ? 2 : 1)}
+          onPianoConfig={setPianoConfig}
         />
-        {dualPiano && (
+        <div className={styles.pianoContainer}>
           <Piano
             vertical={isVertical}
             className={styles.piano}
             {...pianoConfig}
-            offset={pianoConfig.offset + numWhiteKeys}
+            annotations={annotations}
             loading={!toneLoaded}
             onNoteDown={onNoteDown}
             onNoteUp={onNoteUp}
             highlightNotes={highlightNotes}
             onResize={(wk) => setNumWhiteKeys(wk)}
           />
-        )}
+          {dualPiano && (
+            <Piano
+              vertical={isVertical}
+              className={styles.piano}
+              {...pianoConfig}
+              annotations={annotations}
+              offset={pianoConfig.offset + numWhiteKeys}
+              loading={!toneLoaded}
+              onNoteDown={onNoteDown}
+              onNoteUp={onNoteUp}
+              highlightNotes={highlightNotes}
+              onResize={(wk) => setNumWhiteKeys(wk)}
+            />
+          )}
+        </div>
       </div>
-    </div>
+    </AppStateContext.Provider>
   );
 }
