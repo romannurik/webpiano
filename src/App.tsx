@@ -23,6 +23,7 @@ import {
   optimalChordInversion,
   parseNote,
 } from "./piano-util";
+import { useKeyboardPianoKeys } from "./useKeyboardPianoKeys";
 import type { ChordType, PianoConfig } from "./types";
 
 const PIANO_CONFIG_LOCAL_STORAGE_KEY = "pianoSettings";
@@ -53,6 +54,8 @@ export type AppContextType = AppState & {
   triggerAttack: (notes: string | string[]) => void;
   triggerRelease: (notes: string | string[]) => void;
   releaseAll: () => void;
+  onNoteDown?: (...notes: string[]) => void;
+  onNoteUp?: (...notes: string[]) => void;
 };
 
 export const AppContext = createContext<AppContextType>(null!);
@@ -189,6 +192,8 @@ export default function App() {
     [handleNotesChanged],
   );
 
+  useKeyboardPianoKeys({ onNoteDown, onNoteUp });
+
   let updatePianoConfig = useCallback((updates: Partial<PianoConfig>) => {
     setPianoConfig((prev) => ({ ...prev, ...updates }));
   }, []);
@@ -299,6 +304,8 @@ export default function App() {
       triggerAttack,
       triggerRelease,
       releaseAll,
+      onNoteDown,
+      onNoteUp,
     }),
     [
       appState,
@@ -312,6 +319,8 @@ export default function App() {
       triggerAttack,
       triggerRelease,
       releaseAll,
+      onNoteDown,
+      onNoteUp,
     ],
   );
 

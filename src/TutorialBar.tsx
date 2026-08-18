@@ -1,7 +1,7 @@
 import cn from "classnames";
 import {
-  ArrowLeftIcon,
   ExpandIcon,
+  GraduationCapIcon,
   MinimizeIcon,
   MoonIcon,
   PlayIcon,
@@ -82,16 +82,6 @@ export function TutorialBar({ className }: { className?: string }) {
 
   return (
     <div className={cn(className, styles.toolbar)}>
-      <button
-        className={styles.backButton}
-        onClick={() => {
-          stopSong();
-          updateAppState({ tutorialMode: false });
-        }}
-        aria-label="Exit tutorial"
-      >
-        <ArrowLeftIcon />
-      </button>
       <RotateOptionsIconButton
         options={
           ["normal", "large", "huge"] satisfies Array<PianoConfig["keySize"]>
@@ -134,6 +124,14 @@ export function TutorialBar({ className }: { className?: string }) {
           </>
         )}
       </button>
+      <IconButton
+        icon={<GraduationCapIcon />}
+        checked
+        onClick={() => {
+          stopSong();
+          updateAppState({ tutorialMode: false });
+        }}
+      />
       <IconButton
         icon={dark ? <SunIcon /> : <MoonIcon />}
         onClick={() => updatePianoConfig({ dark: !dark })}

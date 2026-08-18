@@ -1,62 +1,67 @@
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
 }
 
-.backButton,
 .playButton {
   border: 0;
   color: inherit;
   background: var(--color-bg);
-  box-shadow: 0 0 0 2px var(--color-border);
-  border-radius: 8px;
   height: 40px;
-  padding: 0 14px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   font: inherit;
-  margin-left: 8px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.playButton {
-  min-width: 92px;
+  position: relative;
   justify-content: center;
-  background: var(--color-fg);
-  color: var(--color-bg);
   box-shadow: none;
-}
+  background: var(--color-bg); // needed for vertical
 
-.backButton {
-  padding: 0 8px;
-  background: transparent;
-  box-shadow: none;
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  @media (max-width: 560px) {
+    & {
+      min-width: 40px;
+      padding: 0;
+      justify-content: center;
+    }
+
+    span {
+      display: none;
+    }
+
+    svg {
+      width: unset;
+      height: unset;
+    }
+  }
+
+  &:after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: 6px;
+    background: white;
+    mix-blend-mode: difference;
+  }
 }
 
 .songSelect {
   flex: 1 1 240px;
   min-width: 120px;
-  height: 40px;
-  padding: 0 38px 0 12px;
+  height: 36px;
+  padding: 0;
+  margin: 0 12px;
   border: 2px solid var(--color-border);
   border-radius: 8px;
   color: inherit;
   background: var(--color-bg);
   font: inherit;
   font-weight: 600;
-}
-
-@media (max-width: 560px) {
-  .playButton span {
-    display: none;
-  }
-  .backButton,
-  .playButton {
-    min-width: 40px;
-    padding: 0;
-    justify-content: center;
-  }
 }
