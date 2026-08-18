@@ -1,17 +1,18 @@
 import cn from "classnames";
 import {
   ExpandIcon,
+  GraduationCapIcon,
   MinimizeIcon,
   MoonIcon,
   Music4Icon,
   PencilIcon,
   SunIcon,
   ZoomInIcon,
-  ZoomOutIcon
+  ZoomOutIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { flushSync } from "react-dom";
-import { useAppState } from "./App";
+import { useApp } from "./App";
 import { IconButton, RotateOptionsIconButton } from "./components/IconButton";
 import { InstrumentPicker } from "./InstrumentPicker";
 import { CATEGORY_ICONS, INSTRUMENTS } from "./instruments";
@@ -32,7 +33,7 @@ export function PianoToolbar({
   numWhiteKeys: number;
 }) {
   let { instrument, keySize, offset, dark } = pianoConfig;
-  let { editingChords, updateAppState } = useAppState();
+  let { editingChords, updateAppState } = useApp();
   let [isFullscreen, setFullscreen] = useState(false);
   let [showInstrumentPicker, setShowInstrumentPicker] = useState(false);
 
@@ -151,6 +152,12 @@ export function PianoToolbar({
             }}
           />
         </div>
+        <IconButton
+          icon={<GraduationCapIcon />}
+          onClick={() =>
+            updateAppState({ tutorialMode: true, editingChords: false })
+          }
+        />
         <IconButton
           icon={dark ? <SunIcon /> : <MoonIcon />}
           onClick={() => updateConfig({ dark: !dark })}

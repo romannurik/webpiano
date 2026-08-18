@@ -12,6 +12,7 @@ import * as Tone from "tone";
 import styles from "./App.module.scss";
 import { Piano, type KeyAnnotation } from "./Piano";
 import { PianoToolbar } from "./PianoToolbar";
+import { TutorialBar } from "./TutorialBar";
 import { INSTRUMENTS } from "./instruments";
 import {
   deltaNote,
@@ -36,23 +37,31 @@ const PIANO_CONFIG_LOCAL_STORAGE_KEY = "pianoSettings";
 
 export type AppState = {
   editingChords: boolean;
+  tutorialMode: boolean;
 };
 
-const AppStateContext = createContext<
-  AppState & {
-    updateAppState: (updates: Partial<AppState>) => void;
-  }
->({
-  editingChords: false,
-  updateAppState: () => {},
-});
+export type AppContextType = AppState & {
+  updateAppState: (updates: Partial<AppState>) => void;
+  pianoConfig: PianoConfig;
+  updatePianoConfig: (updates: Partial<PianoConfig>) => void;
+  setPianoConfig: React.Dispatch<React.SetStateAction<PianoConfig>>;
+  toneLoaded: boolean;
+  highlightNotes: string[];
+  setHighlightNotes: React.Dispatch<React.SetStateAction<string[]>>;
+  playNote: (note: string) => void;
+  releaseNote: (note: string) => void;
+  triggerAttack: (notes: string | string[]) => void;
+  triggerRelease: (notes: string | string[]) => void;
+  releaseAll: () => void;
+};
 
-export const useAppState = () => useContext(AppStateContext);
+export const AppContext = createContext<AppContextType>(null!);
+export const useApp = () => useContext(AppContext);
 
 let initialPianoConfig: PianoConfig;
 try {
   initialPianoConfig = JSON.parse(
-    window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY]
+    window.localStorage[PIANO_CONFIG_LOCAL_STORAGE_KEY],
   );
   const { offset, keySize, instrument } = initialPianoConfig || {};
   if (typeof offset !== "number" || !keySize || !instrument) {
@@ -79,6 +88,7 @@ export default function App() {
   let [highlightNotes, setHighlightNotes] = useState<string[]>([]);
   let [appState, setAppState] = useState<AppState>({
     editingChords: false,
+    tutorialMode: false,
   });
 
   useEffect(() => {
@@ -133,7 +143,7 @@ export default function App() {
     setHighlightNotes(activeNotes.current);
     let { added, removed } = diffNotes(
       prevActiveNotes.current,
-      activeNotes.current
+      activeNotes.current,
     );
     added.forEach((n) => tone.current?.triggerAttack(n as any));
     removed.forEach((n) => tone.current?.triggerRelease(n as any));
@@ -159,7 +169,7 @@ export default function App() {
                   newChord = "major";
                 }
                 return [note, newChord];
-              })
+              }),
             ),
           },
         }));
@@ -168,7 +178,7 @@ export default function App() {
         handleNotesChanged();
       }
     },
-    [handleNotesChanged, appState.editingChords]
+    [handleNotesChanged, appState.editingChords],
   );
 
   let onNoteUp = useCallback(
@@ -176,38 +186,50 @@ export default function App() {
       downNotes.current = downNotes.current.filter((n) => !notes.includes(n));
       handleNotesChanged();
     },
-    [handleNotesChanged]
+    [handleNotesChanged],
   );
 
-  // play notes on a sequence
-  // useEffect(() => {
-  //   let scale = makeScale('E3', false);
-  //   let queue = [{
-  //     notes: [scale[0], scale[2], scale[4]],
-  //     hold: 1000
-  //   }];
-  //   console.clear();
-  //   console.log(queue);
-  //   let cancel = false;
-  //   (async () => {
-  //     await new Promise(resolve => setTimeout(resolve, 1000));
-  //     while (!cancel && queue.length) {
-  //       let { notes, hold } = queue.shift();
-  //       setPlayNotes(notes);
-  //       await new Promise(resolve => setTimeout(resolve, hold));
-  //     }
-  //     setPlayNotes([]);
-  //   })();
-  //   return () => {
-  //     cancel = true;
-  //     setPlayNotes([]);
-  //   }
-  // }, []);
+  let updatePianoConfig = useCallback((updates: Partial<PianoConfig>) => {
+    setPianoConfig((prev) => ({ ...prev, ...updates }));
+  }, []);
+
+  let playNote = useCallback((note: string) => {
+    if (!note || note === "-") return;
+    setHighlightNotes([note]);
+    tone.current?.triggerAttack(note as any);
+  }, []);
+
+  let releaseNote = useCallback((note: string) => {
+    if (!note || note === "-") return;
+    setHighlightNotes([]);
+    tone.current?.triggerRelease(note as any);
+  }, []);
+
+  let triggerAttack = useCallback((notes: string | string[]) => {
+    const list = Array.isArray(notes) ? notes : [notes];
+    setHighlightNotes(list);
+    list.forEach((n) => tone.current?.triggerAttack(n as any));
+  }, []);
+
+  let triggerRelease = useCallback((notes: string | string[]) => {
+    const list = Array.isArray(notes) ? notes : [notes];
+    setHighlightNotes([]);
+    list.forEach((n) => tone.current?.triggerRelease(n as any));
+  }, []);
+
+  let releaseAll = useCallback(() => {
+    setHighlightNotes([]);
+    tone.current?.releaseAll?.();
+  }, []);
+
+  let updateAppState = useCallback((updates: Partial<AppState>) => {
+    setAppState((prev) => ({ ...prev, ...updates }));
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute(
       "theme",
-      pianoConfig.dark ? "dark" : "light"
+      pianoConfig.dark ? "dark" : "light",
     );
   }, [pianoConfig]);
 
@@ -231,6 +253,14 @@ export default function App() {
 
   let annotations = useMemo(() => {
     let annotations: Record<string, KeyAnnotation> = {};
+    if (appState.tutorialMode) {
+      for (let octave = 1; octave <= 9; octave++) {
+        for (let note of ["C", "D", "E", "F", "G", "A", "B"]) {
+          annotations[`${note}${octave}`] = { label: note };
+        }
+      }
+      return annotations;
+    }
     if (!appState.editingChords) {
       return annotations;
     }
@@ -248,27 +278,57 @@ export default function App() {
     }
 
     return annotations;
-  }, [pianoConfig.chordModeConfig, appState.editingChords]);
+  }, [
+    pianoConfig.chordModeConfig,
+    appState.editingChords,
+    appState.tutorialMode,
+  ]);
 
-  let appStateWithUpdate = useMemo(
+  let appContextValue = useMemo<AppContextType>(
     () => ({
       ...appState,
-      updateAppState: (updates: Partial<AppState>) =>
-        setAppState((prev) => ({ ...prev, ...updates })),
+      updateAppState,
+      pianoConfig,
+      updatePianoConfig,
+      setPianoConfig,
+      toneLoaded,
+      highlightNotes,
+      setHighlightNotes,
+      playNote,
+      releaseNote,
+      triggerAttack,
+      triggerRelease,
+      releaseAll,
     }),
-    [appState]
+    [
+      appState,
+      updateAppState,
+      pianoConfig,
+      updatePianoConfig,
+      toneLoaded,
+      highlightNotes,
+      playNote,
+      releaseNote,
+      triggerAttack,
+      triggerRelease,
+      releaseAll,
+    ],
   );
 
   return (
-    <AppStateContext.Provider value={appStateWithUpdate}>
+    <AppContext.Provider value={appContextValue}>
       <div className={cn(styles.app, { [styles.isVertical]: isVertical })}>
-        <PianoToolbar
-          className={styles.toolbar}
-          vertical={isVertical}
-          pianoConfig={pianoConfig}
-          numWhiteKeys={numWhiteKeys * (dualPiano ? 2 : 1)}
-          onPianoConfig={setPianoConfig}
-        />
+        {appState.tutorialMode ? (
+          <TutorialBar className={styles.toolbar} />
+        ) : (
+          <PianoToolbar
+            className={styles.toolbar}
+            vertical={isVertical}
+            pianoConfig={pianoConfig}
+            numWhiteKeys={numWhiteKeys * (dualPiano ? 2 : 1)}
+            onPianoConfig={setPianoConfig}
+          />
+        )}
         <div className={styles.pianoContainer}>
           <Piano
             vertical={isVertical}
@@ -297,6 +357,6 @@ export default function App() {
           )}
         </div>
       </div>
-    </AppStateContext.Provider>
+    </AppContext.Provider>
   );
 }
